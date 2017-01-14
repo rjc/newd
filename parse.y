@@ -82,7 +82,7 @@ char	*symget(const char *);
 
 void	 clear_config(struct vmd *xconf);
 
-static struct vmd	*conf;
+extern struct vmd	*env;
 static int		 errors;
 
 static struct group	*group;
@@ -155,7 +155,7 @@ yesno		: YES	{ $$ = 1; }
 
 varset		: STRING '=' string		{
 			char *s = $1;
-			if (conf->verbose)
+			if (env->verbose)
 				printf("%s = \"%s\"\n", $1, $3);
 			while (*s++) {
 				if (isspace((unsigned char)*s)) {
@@ -172,18 +172,18 @@ varset		: STRING '=' string		{
 		;
 
 conf_main	: YESNO yesno {
-			conf->yesno = $2;
+			env->yesno = $2;
 		}
 		| INTEGER NUMBER {
-			conf->integer = $2;
+			env->integer = $2;
 		}
 		| GLOBAL_TEXT STRING {
 			size_t n;
-			memset(conf->global_text, 0,
-			    sizeof(conf->global_text));
-			n = strlcpy(conf->global_text, $2,
-			    sizeof(conf->global_text));
-			if (n >= sizeof(conf->global_text)) {
+			memset(env->global_text, 0,
+			    sizeof(env->global_text));
+			n = strlcpy(env->global_text, $2,
+			    sizeof(env->global_text));
+			if (n >= sizeof(env->global_text)) {
 				yyerror("error parsing global_text: too long");
 				free($2);
 				YYERROR;
@@ -610,16 +610,14 @@ parse_config(const char *filename)
 {
 	struct sym	*sym, *next;
 
-	conf = config_new_empty();
-
-	file = pushfile(filename, !(conf->noaction));
+	file = pushfile(filename, 0);
 	if (file == NULL) {
-		free(conf);
+		log_warn("failed to open %s", filename);
 		return (0);
 	}
 	topfile = file;
 
-	LIST_INIT(&conf->group_list);
+	LIST_INIT(&env->group_list);
 
 	yyparse();
 	errors = file->errors;
@@ -627,7 +625,7 @@ parse_config(const char *filename)
 
 	/* Free macros and check which have not been used. */
 	TAILQ_FOREACH_SAFE(sym, &symhead, entry, next) {
-		if ((conf->verbose > 1) && !sym->used)
+		if ((env->verbose > 1) && !sym->used)
 			fprintf(stderr, "warning: macro '%s' not used\n",
 			    sym->nam);
 		if (!sym->persist) {
@@ -638,10 +636,8 @@ parse_config(const char *filename)
 		}
 	}
 
-	if (errors) {
-		clear_config(conf);
-		return (0);
-	}
+	if (errors)
+		return (-1);
 
 	return (0);
 }
@@ -728,7 +724,7 @@ conf_get_group(char *name)
 	struct group	*g;
 	size_t		n;
 
-	LIST_FOREACH(g, &conf->group_list, entry) {
+	LIST_FOREACH(g, &env->group_list, entry) {
 		if (strcmp(name, g->name) == 0)
 			return (g);
 	}
@@ -741,10 +737,10 @@ conf_get_group(char *name)
 		errx(1, "get_group: name too long");
 
 	/* Inherit attributes set in global section. */
-	g->yesno = conf->yesno;
-	g->integer = conf->integer;
+	g->yesno = env->yesno;
+	g->integer = env->integer;
 
-	LIST_INSERT_HEAD(&conf->group_list, g, entry);
+	LIST_INSERT_HEAD(&env->group_list, g, entry);
 
 	return (g);
 }
