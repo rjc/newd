@@ -1,7 +1,5 @@
-/*	$OpenBSD$	*/
-
 /*
- * Copyright (c) 2004, 2005 Esben Norby <norby@openbsd.org>
+ * Copyright (c) 2016 Mike Larkin <mlarkin@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,5 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-void		 engine(int, int);
-int		 engine_imsg_compose_frontend(int, pid_t, void *, uint16_t);
+#define MAX_PORTS 65536
+
+typedef uint8_t (*io_fn_t)(struct vm_run_params *);
+
+void vcpu_assert_pic_irq(uint32_t, uint32_t, int);
