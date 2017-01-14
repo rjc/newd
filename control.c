@@ -35,7 +35,7 @@
 #include <signal.h>
 
 #include "proc.h"
-#include "vmd.h"
+#include "newd.h"
 
 #define	CONTROL_BACKLOG	5
 

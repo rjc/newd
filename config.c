@@ -36,7 +36,7 @@
 #include <imsg.h>
 
 #include "proc.h"
-#include "vmd.h"
+#include "newd.h"
 
 /* Supported bridge types */
 const char *vmd_descsw[] = { "switch", "bridge", NULL };

@@ -36,7 +36,7 @@
 #include <util.h>
 
 #include "proc.h"
-#include "vmd.h"
+#include "newd.h"
 
 __dead void usage(void);
 

@@ -50,16 +50,8 @@
 #include <unistd.h>
 #include <util.h>
 
-#include "vmd.h"
-#include "vmm.h"
-#include "loadfile.h"
-#include "pci.h"
-#include "virtio.h"
-#include "proc.h"
-#include "i8253.h"
-#include "i8259.h"
-#include "ns8250.h"
-#include "mc146818.h"
+#include "newd.h"
+#include "engine.h"
 
 io_fn_t ioports_map[MAX_PORTS];
 
