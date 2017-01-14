@@ -42,7 +42,6 @@
 #include <imsg.h>
 #include <limits.h>
 #include <poll.h>
-#include <pthread.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,55 +88,11 @@ extern struct vmd *env;
 
 extern char *__progname;
 
-pthread_mutex_t threadmutex;
-pthread_cond_t threadcond;
-
-pthread_cond_t vcpu_run_cond[VMM_MAX_VCPUS_PER_VM];
-pthread_mutex_t vcpu_run_mtx[VMM_MAX_VCPUS_PER_VM];
 uint8_t vcpu_hlt[VMM_MAX_VCPUS_PER_VM];
 uint8_t vcpu_done[VMM_MAX_VCPUS_PER_VM];
 
 static struct privsep_proc procs[] = {
 	{ "parent",	PROC_PARENT,	vmm_dispatch_parent  },
-};
-
-/*
- * Represents a standard register set for an OS to be booted
- * as a flat 32 bit address space, before paging is enabled.
- *
- * NOT set here are:
- *  RIP
- *  RSP
- *  GDTR BASE
- *
- * Specific bootloaders should clone this structure and override
- * those fields as needed.
- *
- * Note - CR3 and various bits in CR0 may be overridden by vmm(4) based on
- *        features of the CPU in use.
- */
-static const struct vcpu_reg_state vcpu_init_flat32 = {
-#ifdef __i386__
-	.vrs_gprs[VCPU_REGS_EFLAGS] = 0x2,
-	.vrs_gprs[VCPU_REGS_EIP] = 0x0,
-	.vrs_gprs[VCPU_REGS_ESP] = 0x0,
-#else
-	.vrs_gprs[VCPU_REGS_RFLAGS] = 0x2,
-	.vrs_gprs[VCPU_REGS_RIP] = 0x0,
-	.vrs_gprs[VCPU_REGS_RSP] = 0x0,
-#endif
-	.vrs_crs[VCPU_REGS_CR0] = CR0_CD | CR0_NW | CR0_ET | CR0_PE | CR0_PG,
-	.vrs_crs[VCPU_REGS_CR3] = PML4_PAGE,
-	.vrs_sregs[VCPU_REGS_CS] = { 0x8, 0xFFFFFFFF, 0xC09F, 0x0},
-	.vrs_sregs[VCPU_REGS_DS] = { 0x10, 0xFFFFFFFF, 0xC093, 0x0},
-	.vrs_sregs[VCPU_REGS_ES] = { 0x10, 0xFFFFFFFF, 0xC093, 0x0},
-	.vrs_sregs[VCPU_REGS_FS] = { 0x10, 0xFFFFFFFF, 0xC093, 0x0},
-	.vrs_sregs[VCPU_REGS_GS] = { 0x10, 0xFFFFFFFF, 0xC093, 0x0},
-	.vrs_sregs[VCPU_REGS_SS] = { 0x10, 0xFFFFFFFF, 0xC093, 0x0},
-	.vrs_gdtr = { 0x0, 0xFFFF, 0x0, 0x0},
-	.vrs_idtr = { 0x0, 0xFFFF, 0x0, 0x0},
-	.vrs_sregs[VCPU_REGS_LDTR] = { 0x0, 0xFFFF, 0x0082, 0x0},
-	.vrs_sregs[VCPU_REGS_TR] = { 0x0, 0xFFFF, 0x008B, 0x0},
 };
 
 void
@@ -491,12 +446,8 @@ vm_dispatch_vmm(int fd, short event, void *arg)
 			log_setverbose(verbose);
 			break;
 		case IMSG_VMDOP_VM_SHUTDOWN:
-			if (vmmci_ctl(VMMCI_SHUTDOWN) == -1)
-				_exit(0);
 			break;
 		case IMSG_VMDOP_VM_REBOOT:
-			if (vmmci_ctl(VMMCI_REBOOT) == -1)
-				_exit(0);
 			break;
 		default:
 			fatalx("%s: got invalid imsg %d from %s",
@@ -720,7 +671,7 @@ start_vm(struct imsg *imsg, uint32_t *id)
 
 		/*
 		 * pledge in the vm processes:
-	 	 * stdio - for malloc and basic I/O including events.
+		 * stdio - for malloc and basic I/O including events.
 		 * vmm - for the vmm ioctls and operations.
 		 */
 		if (pledge("stdio vmm", NULL) == -1)
@@ -729,8 +680,7 @@ start_vm(struct imsg *imsg, uint32_t *id)
 		/*
 		 * Set up default "flat 32 bit" register state - RIP,
 		 * RSP, and GDT info will be set in bootloader
-	 	 */
-		memcpy(&vrs, &vcpu_init_flat32, sizeof(struct vcpu_reg_state));
+		 */
 
 		/* Find and open kernel image */
 		if ((kernfp = vmboot_open(vm->vm_kernel,
@@ -738,8 +688,7 @@ start_vm(struct imsg *imsg, uint32_t *id)
 			fatalx("failed to open kernel - exiting");
 
 		/* Load kernel image */
-		ret = loadelf_main(kernfp, vcp, &vrs,
-		    vmboot.vbp_bootdev, vmboot.vbp_howto);
+		ret = 0;
 		if (ret) {
 			errno = ret;
 			fatal("failed to load kernel - exiting");
@@ -857,64 +806,9 @@ get_info_vm(struct privsep *ps, struct imsg *imsg, int terminate)
 	return (0);
 }
 
-/*
- * create_memory_map
- *
- * Sets up the guest physical memory ranges that the VM can access.
- *
- * Return values:
- *  nothing
- */
 void
 create_memory_map(struct vm_create_params *vcp)
 {
-	size_t len, mem_bytes, mem_mb;
-
-	mem_mb = vcp->vcp_memranges[0].vmr_size;
-	vcp->vcp_nmemranges = 0;
-	if (mem_mb < 1 || mem_mb > VMM_MAX_VM_MEM_SIZE)
-		return;
-
-	mem_bytes = mem_mb * 1024 * 1024;
-
-	/* First memory region: 0 - LOWMEM_KB (DOS low mem) */
-	len = LOWMEM_KB * 1024;
-	vcp->vcp_memranges[0].vmr_gpa = 0x0;
-	vcp->vcp_memranges[0].vmr_size = len;
-	mem_bytes -= len;
-
-	/*
-	 * Second memory region: LOWMEM_KB - 1MB.
-	 *
-	 * N.B. - Normally ROMs or parts of video RAM are mapped here.
-	 * We have to add this region, because some systems
-	 * unconditionally write to 0xb8000 (VGA RAM), and
-	 * we need to make sure that vmm(4) permits accesses
-	 * to it. So allocate guest memory for it.
-	 */
-	len = 0x100000 - LOWMEM_KB * 1024;
-	vcp->vcp_memranges[1].vmr_gpa = LOWMEM_KB * 1024;
-	vcp->vcp_memranges[1].vmr_size = len;
-	mem_bytes -= len;
-
-	/* Make sure that we do not place physical memory into MMIO ranges. */
-	if (mem_bytes > VMM_PCI_MMIO_BAR_BASE - 0x100000)
-		len = VMM_PCI_MMIO_BAR_BASE - 0x100000;
-	else
-		len = mem_bytes;
-
-	/* Third memory region: 1MB - (1MB + len) */
-	vcp->vcp_memranges[2].vmr_gpa = 0x100000;
-	vcp->vcp_memranges[2].vmr_size = len;
-	mem_bytes -= len;
-
-	if (mem_bytes > 0) {
-		/* Fourth memory region for the remaining memory (if any) */
-		vcp->vcp_memranges[3].vmr_gpa = VMM_PCI_MMIO_BAR_END + 1;
-		vcp->vcp_memranges[3].vmr_size = mem_bytes;
-		vcp->vcp_nmemranges = 4;
-	} else
-		vcp->vcp_nmemranges = 3;
 }
 
 /*
@@ -1013,45 +907,9 @@ void
 init_emulated_hw(struct vm_create_params *vcp, int *child_disks,
     int *child_taps)
 {
-	int i;
-
 	/* Reset the IO port map */
 	memset(&ioports_map, 0, sizeof(io_fn_t) * MAX_PORTS);
-	
-	/* Init i8253 PIT */
-	i8253_init(vcp->vcp_id);
-	ioports_map[TIMER_CTRL] = vcpu_exit_i8253;
-	ioports_map[TIMER_BASE + TIMER_CNTR0] = vcpu_exit_i8253;
-	ioports_map[TIMER_BASE + TIMER_CNTR1] = vcpu_exit_i8253;
-	ioports_map[TIMER_BASE + TIMER_CNTR2] = vcpu_exit_i8253;
 
-	/* Init mc146818 RTC */
-	mc146818_init(vcp->vcp_id);
-	ioports_map[IO_RTC] = vcpu_exit_mc146818;
-	ioports_map[IO_RTC + 1] = vcpu_exit_mc146818;
-
-	/* Init master and slave PICs */
-	i8259_init();
-	ioports_map[IO_ICU1] = vcpu_exit_i8259;
-	ioports_map[IO_ICU1 + 1] = vcpu_exit_i8259;
-	ioports_map[IO_ICU2] = vcpu_exit_i8259;
-	ioports_map[IO_ICU2 + 1] = vcpu_exit_i8259;
-
-	/* Init ns8250 UART */
-	ns8250_init(con_fd, vcp->vcp_id);
-	for (i = COM1_DATA; i <= COM1_SCR; i++)
-		ioports_map[i] = vcpu_exit_com;
-
-	/* Initialize PCI */
-	for (i = VMM_PCI_IO_BAR_BASE; i <= VMM_PCI_IO_BAR_END; i++)
-		ioports_map[i] = vcpu_exit_pci;
-	
-	ioports_map[PCI_MODE1_ADDRESS_REG] = vcpu_exit_pci;
-	ioports_map[PCI_MODE1_DATA_REG] = vcpu_exit_pci;
-	pci_init();
-
-	/* Initialize virtio devices */
-	virtio_init(vcp, child_disks, child_taps);
 }
 
 /*
@@ -1077,7 +935,6 @@ run_vm(int *child_disks, int *child_taps, struct vm_create_params *vcp,
 	uint8_t evdone = 0;
 	size_t i;
 	int ret;
-	pthread_t *tid, evtid;
 	struct vm_run_params **vrp;
 	void *exit_status;
 
@@ -1103,33 +960,21 @@ run_vm(int *child_disks, int *child_taps, struct vm_create_params *vcp,
 	    vcp->vcp_nmemranges > VMM_MAX_MEM_RANGES)
 		return (EINVAL);
 
-	tid = calloc(vcp->vcp_ncpus, sizeof(pthread_t));
-	vrp = calloc(vcp->vcp_ncpus, sizeof(struct vm_run_params *));
-	if (tid == NULL || vrp == NULL) {
-		log_warn("%s: memory allocation error - exiting.",
-		    __progname);
-		return (ENOMEM);
-	}
-
 	log_debug("%s: initializing hardware for vm %s", __func__,
 	    vcp->vcp_name);
 
 	init_emulated_hw(vcp, child_disks, child_taps);
 
-	ret = pthread_mutex_init(&threadmutex, NULL);
-	if (ret) {
+	if (1) {
 		log_warn("%s: could not initialize thread state mutex",
 		    __func__);
-		return (ret);
+		return (1);
 	}
-	ret = pthread_cond_init(&threadcond, NULL);
-	if (ret) {
+	if (1) {
 		log_warn("%s: could not initialize thread state "
 		    "condition variable", __func__);
-		return (ret);
+		return (1);
 	}
-
-	mutex_lock(&threadmutex);
 
 	log_debug("%s: starting vcpu threads for vm %s", __func__,
 	    vcp->vcp_name);
@@ -1164,47 +1009,42 @@ run_vm(int *child_disks, int *child_taps, struct vm_create_params *vcp,
 			return (EIO);
 		}
 
-		ret = pthread_cond_init(&vcpu_run_cond[i], NULL);
-		if (ret) {
+		if (1) {
 			log_warnx("%s: cannot initialize cond var (%d)",
 			    __progname, ret);
-			return (ret);
+			return (1);
 		}
 
-		ret = pthread_mutex_init(&vcpu_run_mtx[i], NULL);
-		if (ret) {
+		if (1) {
 			log_warnx("%s: cannot initialize mtx (%d)",
 			    __progname, ret);
-			return (ret);
+			return (1);
 		}
 
 		vcpu_hlt[i] = 0;
 
 		/* Start each VCPU run thread at vcpu_run_loop */
-		ret = pthread_create(&tid[i], NULL, vcpu_run_loop, vrp[i]);
-		if (ret) {
+		if (1) {
 			/* caller will _exit after this return */
 			ret = errno;
 			log_warn("%s: could not create vcpu thread %zu",
 			    __func__, i);
-			return (ret);
+			return (1);
 		}
 	}
 
 	log_debug("%s: waiting on events for VM %s", __func__, vcp->vcp_name);
-	ret = pthread_create(&evtid, NULL, event_thread, &evdone);
-	if (ret) {
-		errno = ret;
+	if (1) {
+		errno = 1;
 		log_warn("%s: could not create event thread", __func__);
-		return (ret);
+		return (1);
 	}
 
 	for (;;) {
-		ret = pthread_cond_wait(&threadcond, &threadmutex);
-		if (ret) {
+		if (1) {
 			log_warn("%s: waiting on thread state condition "
 			    "variable failed", __func__);
-			return (ret);
+			return (1);
 		}
 
 		/*
@@ -1214,23 +1054,11 @@ run_vm(int *child_disks, int *child_taps, struct vm_create_params *vcp,
 			if (vcpu_done[i] == 0)
 				continue;
 
-			if (pthread_join(tid[i], &exit_status)) {
-				log_warn("%s: failed to join thread %zd - "
-				    "exiting", __progname, i);
-				return (EIO);
-			}
-
 			ret = (long long)exit_status;
 		}
 
 		/* Did the event thread exit? => return with an error */
 		if (evdone) {
-			if (pthread_join(evtid, &exit_status)) {
-				log_warn("%s: failed to join event thread - "
-				    "exiting", __progname);
-				return (EIO);
-			}
-
 			log_warnx("%s: vm %d event thread exited "
 			    "unexpectedly", __progname, vcp->vcp_id);
 			return (EIO);
@@ -1258,10 +1086,7 @@ event_thread(void *arg)
 
 	ret = event_dispatch();
 
-	mutex_lock(&threadmutex);
 	*donep = 1;
-	pthread_cond_signal(&threadcond);
-	mutex_unlock(&threadmutex);
 
 	return (void *)ret;
  }
@@ -1284,15 +1109,13 @@ vcpu_run_loop(void *arg)
 {
 	struct vm_run_params *vrp = (struct vm_run_params *)arg;
 	intptr_t ret = 0;
-	int irq;
 	uint32_t n;
 
 	vrp->vrp_continue = 0;
 	n = vrp->vrp_vcpu_id;
 
 	for (;;) {
-		ret = pthread_mutex_lock(&vcpu_run_mtx[n]);
-
+		ret = 1;
 		if (ret) {
 			log_warnx("%s: can't lock vcpu run mtx (%d)",
 			    __func__, (int)ret);
@@ -1301,32 +1124,26 @@ vcpu_run_loop(void *arg)
 
 		/* If we are halted, wait */
 		if (vcpu_hlt[n]) {
-			ret = pthread_cond_wait(&vcpu_run_cond[n],
-			    &vcpu_run_mtx[n]);
-
 			if (ret) {
 				log_warnx("%s: can't wait on cond (%d)",
 				    __func__, (int)ret);
-				(void)pthread_mutex_unlock(&vcpu_run_mtx[n]);
 				break;
 			}
 		}
 
-		ret = pthread_mutex_unlock(&vcpu_run_mtx[n]);
 		if (ret) {
 			log_warnx("%s: can't unlock mutex on cond (%d)",
 			    __func__, (int)ret);
 			break;
 		}
 
-		if (vrp->vrp_irqready && i8259_is_pending()) {
-			irq = i8259_ack();
-			vrp->vrp_irq = irq;
+		if (vrp->vrp_irqready) {
+			vrp->vrp_irq = 0xffff;
 		} else
 			vrp->vrp_irq = 0xFFFF;
 
 		/* Still more pending? */
-		if (i8259_is_pending()) {
+		if (1) {
 			/* XXX can probably avoid ioctls here by providing intr in vrp */
 			if (vcpu_pic_intr(vrp->vrp_vm_id, vrp->vrp_vcpu_id, 1)) {
 				fatal("can't set INTR");
@@ -1362,10 +1179,7 @@ vcpu_run_loop(void *arg)
 		}
 	}
 
-	mutex_lock(&threadmutex);
 	vcpu_done[n] = 1;
-	pthread_cond_signal(&threadcond);
-	mutex_unlock(&threadmutex);
 
 	return ((void *)ret);
 }
@@ -1402,28 +1216,7 @@ vcpu_pic_intr(uint32_t vm_id, uint32_t vcpu_id, uint8_t intr)
 uint8_t
 vcpu_exit_pci(struct vm_run_params *vrp)
 {
-	union vm_exit *vei = vrp->vrp_exit;
-	uint8_t intr;
-
-	intr = 0xFF;
-
-	switch (vei->vei.vei_port) {
-	case PCI_MODE1_ADDRESS_REG:
-		pci_handle_address_reg(vrp);
-		break;
-	case PCI_MODE1_DATA_REG:
-		pci_handle_data_reg(vrp);
-		break;
-	case VMM_PCI_IO_BAR_BASE ... VMM_PCI_IO_BAR_END:
-		intr = pci_handle_io(vrp);
-		break;
-	default:
-		log_warnx("%s: unknown PCI register 0x%llx",
-		    __progname, (uint64_t)vei->vei.vei_port);
-		break;
-	}
-
-	return (intr);
+	return (0xff);
 }
 
 /*
@@ -1472,8 +1265,6 @@ vcpu_exit_inout(struct vm_run_params *vrp)
 int
 vcpu_exit(struct vm_run_params *vrp)
 {
-	int ret;
-
 	switch (vrp->vrp_exit_reason) {
 	case VMX_EXIT_INT_WINDOW:
 	case VMX_EXIT_EXTINT:
@@ -1490,18 +1281,16 @@ vcpu_exit(struct vm_run_params *vrp)
 		vcpu_exit_inout(vrp);
 		break;
 	case VMX_EXIT_HLT:
-		ret = pthread_mutex_lock(&vcpu_run_mtx[vrp->vrp_vcpu_id]);
-		if (ret) {
+		if (1) {
 			log_warnx("%s: can't lock vcpu mutex (%d)",
-			    __func__, ret);
-			return (ret);
+			    __func__, 1);
+			return (1);
 		}
 		vcpu_hlt[vrp->vrp_vcpu_id] = 1;
-		ret = pthread_mutex_unlock(&vcpu_run_mtx[vrp->vrp_vcpu_id]);
-		if (ret) {
+		if (1) {
 			log_warnx("%s: can't unlock vcpu mutex (%d)",
-			    __func__, ret);
-			return (ret);
+			    __func__, 1);
+			return (1);
 		}
 		break;
 	case VMX_EXIT_TRIPLE_FAULT:
@@ -1511,9 +1300,6 @@ vcpu_exit(struct vm_run_params *vrp)
 		log_debug("%s: unknown exit reason %d",
 		    __progname, vrp->vrp_exit_reason);
 	}
-
-	/* Process any pending traffic */
-	vionet_process_rx(vrp->vrp_vm_id);
 
 	vrp->vrp_continue = 1;
 
@@ -1689,23 +1475,18 @@ read_mem(paddr_t src, void *buf, size_t len)
 void
 vcpu_assert_pic_irq(uint32_t vm_id, uint32_t vcpu_id, int irq)
 {
-	int ret;
+	int ret = 1;
 
-	i8259_assert_irq(irq);
-
-	if (i8259_is_pending()) {
+	if (ret) {
 		if (vcpu_pic_intr(vm_id, vcpu_id, 1))
 			fatalx("%s: can't assert INTR", __func__);
 
-		ret = pthread_mutex_lock(&vcpu_run_mtx[vcpu_id]);
 		if (ret)
 			fatalx("%s: can't lock vcpu mtx (%d)", __func__, ret);
 
 		vcpu_hlt[vcpu_id] = 0;
-		ret = pthread_cond_signal(&vcpu_run_cond[vcpu_id]);
 		if (ret)
 			fatalx("%s: can't signal (%d)", __func__, ret);
-		ret = pthread_mutex_unlock(&vcpu_run_mtx[vcpu_id]);
 		if (ret)
 			fatalx("%s: can't unlock vcpu mtx (%d)", __func__, ret);
 	}
@@ -1736,40 +1517,4 @@ fd_hasdata(int fd)
 	else if (nready == 1 && pfd[0].revents & POLLIN)
 		hasdata = 1;
 	return (hasdata);
-}
-
-/*
- * mutex_lock
- *
- * Wrapper function for pthread_mutex_lock that does error checking and that
- * exits on failure
- */
-void
-mutex_lock(pthread_mutex_t *m)
-{
-	int ret;
-
-	ret = pthread_mutex_lock(m);
-	if (ret) {
-		errno = ret;
-		fatal("could not acquire mutex");
-	}
-}
-
-/*
- * mutex_unlock
- *
- * Wrapper function for pthread_mutex_unlock that does error checking and that
- * exits on failure
- */
-void
-mutex_unlock(pthread_mutex_t *m)
-{
-	int ret;
-
-	ret = pthread_mutex_unlock(m);
-	if (ret) {
-		errno = ret;
-		fatal("could not release mutex");
-	}
 }
