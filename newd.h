@@ -185,6 +185,10 @@ struct vmd {
 	struct switchlist	*vmd_switches;
 
 	int			 vmd_fd;
+
+	int			 yesno;
+	int			 integer;
+	char			 global_text[256];
 };
 
 /* vmd.c */

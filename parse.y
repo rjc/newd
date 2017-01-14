@@ -81,9 +81,9 @@ struct sym {
 int	 symset(const char *, const char *, int);
 char	*symget(const char *);
 
-void	 clear_config(struct newd_conf *xconf);
+void	 clear_config(struct vmd *xconf);
 
-static struct newd_conf	*conf;
+static struct vmd	*conf;
 static int		 errors;
 
 static struct group	*group;
@@ -606,7 +606,7 @@ popfile(void)
 	return (file ? 0 : EOF);
 }
 
-struct newd_conf *
+struct vmd *
 parse_config(char *filename)
 {
 	struct sym	*sym, *next;
@@ -751,7 +751,7 @@ conf_get_group(char *name)
 }
 
 void
-clear_config(struct newd_conf *xconf)
+clear_config(struct vmd *xconf)
 {
 	struct group	*g;
 

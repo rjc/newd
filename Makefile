@@ -1,7 +1,7 @@
 #	$OpenBSD$
 
 PROG=	newd
-SRCS=	control.c engine.c log.c newd.c parse.y printconf.c proc.c
+SRCS=	config.c control.c engine.c log.c newd.c parse.y printconf.c proc.c
 
 MAN=	newd.8 newd.conf.5
 
