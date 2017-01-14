@@ -21,6 +21,9 @@
 #include <sys/wait.h>
 #include <sys/cdefs.h>
 
+#include <net/if.h>
+#include <netinet/in.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -263,9 +266,6 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 			if (!vm->vm_running) {
 				memset(&vir, 0, sizeof(vir));
 				vir.vir_info.vir_id = 0;
-				strlcpy(vir.vir_info.vir_name,
-				    vm->vm_params.vmc_params.vcp_name,
-				    VMM_MAX_NAME_LEN);
 				vir.vir_info.vir_memory_size =
 				    vm->vm_params.vmc_params.vcp_memranges[0].vmr_size;
 				vir.vir_info.vir_ncpus =

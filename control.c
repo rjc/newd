@@ -25,6 +25,7 @@
 #include <sys/tree.h>
 
 #include <net/if.h>
+#include <netinet/in.h>
 
 #include <errno.h>
 #include <event.h>

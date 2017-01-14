@@ -25,16 +25,8 @@
 #include <sys/time.h>
 #include <sys/mman.h>
 
-#include <dev/ic/i8253reg.h>
-#include <dev/isa/isareg.h>
-#include <dev/pci/pcireg.h>
-
-#include <machine/param.h>
-#include <machine/psl.h>
-#include <machine/specialreg.h>
-#include <machine/vmmvar.h>
-
 #include <net/if.h>
+#include <netinet/in.h>
 
 #include <errno.h>
 #include <event.h>
