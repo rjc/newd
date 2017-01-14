@@ -30,6 +30,8 @@
 
 #include "newd.h"
 
+void print_config(struct vmd *);
+
 void
 print_config(struct vmd *conf)
 {
