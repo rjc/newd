@@ -1,4 +1,4 @@
-/*	$OpenBSD: vmm.c,v 1.63 2017/01/13 14:50:56 reyk Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2015 Mike Larkin <mlarkin@openbsd.org>

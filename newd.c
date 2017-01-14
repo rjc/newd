@@ -1,4 +1,4 @@
-/*	$OpenBSD: vmd.c,v 1.50 2017/01/13 19:21:16 edd Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2015 Reyk Floeter <reyk@openbsd.org>

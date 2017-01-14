@@ -1,4 +1,4 @@
-/*	$OpenBSD: vmd.h,v 1.43 2017/01/13 19:21:16 edd Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2015 Mike Larkin <mlarkin@openbsd.org>
