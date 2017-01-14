@@ -132,7 +132,6 @@ config_setvm(struct privsep *ps, struct vmd_vm *vm, uint32_t peerid)
 	char			 ptyname[VM_TTYNAME_MAX];
 	char			 ifname[IF_NAMESIZE], *s;
 	char			 path[PATH_MAX];
-	unsigned int		 unit;
 
 	errno = 0;
 
@@ -182,18 +181,7 @@ config_setvm(struct privsep *ps, struct vmd_vm *vm, uint32_t peerid)
 	for (i = 0 ; i < vcp->vcp_nnics; i++) {
 		vif = &vm->vm_ifs[i];
 
-		/* Check if the user has requested a specific tap(4) */
-		s = vmc->vmc_ifnames[i];
-		if (*s != '\0' && strcmp("tap", s) != 0) {
-			if (priv_getiftype(s, ifname, &unit) == -1 ||
-			    strcmp(ifname, "tap") != 0) {
-				log_warnx("%s: invalid tap name %s",
-				    __func__, s);
-				errno = EINVAL;
-				goto fail;
-			}
-		} else
-			s = NULL;
+		s = NULL;
 
 		/*
 		 * Either open the requested tap(4) device or get

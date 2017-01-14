@@ -51,8 +51,6 @@ int	 vmd_dispatch_vmm(int, struct privsep_proc *, struct imsg *);
 struct vmd	*env;
 
 static struct privsep_proc procs[] = {
-	/* Keep "priv" on top as procs[0] */
-	{ "priv",	PROC_PRIV,	NULL, priv },
 	{ "control",	PROC_CONTROL,	vmd_dispatch_control, control },
 	{ "vmm",	PROC_VMM,	vmd_dispatch_vmm, vmm, vmm_shutdown },
 };
@@ -207,13 +205,6 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 		if (vmr.vmr_result) {
 			errno = vmr.vmr_result;
 			log_warn("%s: failed to start vm", vcp->vcp_name);
-			vm_remove(vm);
-			break;
-		}
-
-		/* Now configure all the interfaces */
-		if (vm_priv_ifconfig(ps, vm) == -1) {
-			log_warn("%s: failed to configure vm", vcp->vcp_name);
 			vm_remove(vm);
 			break;
 		}
@@ -510,12 +501,6 @@ vmd_configure(void)
 	TAILQ_FOREACH(vsw, env->vmd_switches, sw_entry) {
 		if (vsw->sw_running)
 			continue;
-		if (vm_priv_brconfig(&env->vmd_ps, vsw) == -1) {
-			log_warn("%s: failed to create switch %s",
-			    __func__, vsw->sw_name);
-			switch_remove(vsw);
-			return (-1);
-		}
 	}
 
 	TAILQ_FOREACH(vm, env->vmd_vms, vm_entry) {
@@ -575,12 +560,6 @@ vmd_reload(unsigned int reset, const char *filename)
 		TAILQ_FOREACH(vsw, env->vmd_switches, sw_entry) {
 			if (vsw->sw_running)
 				continue;
-			if (vm_priv_brconfig(&env->vmd_ps, vsw) == -1) {
-				log_warn("%s: failed to create switch %s",
-				    __func__, vsw->sw_name);
-				switch_remove(vsw);
-				return;
-			}
 		}
 
 		TAILQ_FOREACH(vm, env->vmd_vms, vm_entry) {
