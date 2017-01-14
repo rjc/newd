@@ -23,6 +23,7 @@
 #include <machine/vmmvar.h>
 
 #include <net/if.h>
+#include <netinet/in.h>
 
 #include <limits.h>
 #include <stdio.h>
@@ -52,6 +53,17 @@
 #else
 #define dprintf(x...)
 #endif /* VMD_DEBUG */
+
+#define CONF_FILE		"/etc/newd.conf"
+#define	NEWD_SOCKET		"/var/run/newd.sock"
+#define NEWD_USER		"_newd"
+
+#define OPT_VERBOSE	0x00000001
+#define OPT_VERBOSE2	0x00000002
+#define OPT_NOACTION	0x00000004
+
+#define NEWD_MAXTEXT		256
+#define NEWD_MAXGROUPNAME	16
 
 enum imsg_type {
 	IMSG_VMDOP_START_VM_REQUEST = IMSG_PROC_MAX,
@@ -170,6 +182,20 @@ struct vmd_vm {
 };
 TAILQ_HEAD(vmlist, vmd_vm);
 
+struct group {
+	LIST_ENTRY(group)	 entry;
+	char		name[NEWD_MAXGROUPNAME];
+	int		yesno;
+	int		integer;
+	int		group_v4_bits;
+	int		group_v6_bits;
+	struct in_addr	group_v4address;
+	struct in6_addr	group_v6address;
+};
+
+struct newd_conf {
+};
+
 struct vmd {
 	struct privsep		 vmd_ps;
 	const char		*vmd_conffile;
@@ -188,7 +214,8 @@ struct vmd {
 
 	int			 yesno;
 	int			 integer;
-	char			 global_text[256];
+	char			 global_text[NEWD_MAXTEXT];
+	LIST_HEAD(, group)	 group_list;
 };
 
 /* vmd.c */

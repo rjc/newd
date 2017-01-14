@@ -45,7 +45,6 @@
 #include <unistd.h>
 
 #include "newd.h"
-#include "frontend.h"
 
 TAILQ_HEAD(files, file)		 files = TAILQ_HEAD_INITIALIZER(files);
 static struct file {
