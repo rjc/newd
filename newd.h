@@ -201,14 +201,6 @@ void	 switch_remove(struct vmd_switch *);
 struct vmd_switch *switch_getbyname(const char *);
 char	*get_string(uint8_t *, size_t);
 
-/* priv.c */
-void	 priv(struct privsep *, struct privsep_proc *);
-int	 priv_getiftype(char *, char *, unsigned int *);
-int	 priv_findname(const char *, const char **);
-int	 priv_validgroup(const char *);
-int	 vm_priv_ifconfig(struct privsep *, struct vmd_vm *);
-int	 vm_priv_brconfig(struct privsep *, struct vmd_switch *);
-
 /* vmm.c */
 void	 vmm(struct privsep *, struct privsep_proc *);
 void	 vmm_shutdown(void);
@@ -228,10 +220,6 @@ int	 config_setvm(struct privsep *, struct vmd_vm *, uint32_t);
 int	 config_getvm(struct privsep *, struct imsg *);
 int	 config_getdisk(struct privsep *, struct imsg *);
 int	 config_getif(struct privsep *, struct imsg *);
-
-/* vmboot.c */
-FILE	*vmboot_open(int, int, struct vmboot_params *);
-void	 vmboot_close(FILE *, struct vmboot_params *);
 
 /* parse.y */
 int	 parse_config(const char *);

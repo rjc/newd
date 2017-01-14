@@ -575,7 +575,6 @@ int
 start_vm(struct imsg *imsg, uint32_t *id)
 {
 	struct vm_create_params	*vcp;
-	struct vmboot_params	 vmboot;
 	struct vmd_vm		*vm;
 	size_t			 i;
 	int			 ret = EINVAL;
@@ -683,8 +682,7 @@ start_vm(struct imsg *imsg, uint32_t *id)
 		 */
 
 		/* Find and open kernel image */
-		if ((kernfp = vmboot_open(vm->vm_kernel,
-		    vm->vm_disks[0], &vmboot)) == NULL)
+		if ((kernfp = NULL) == NULL)
 			fatalx("failed to open kernel - exiting");
 
 		/* Load kernel image */
@@ -693,8 +691,6 @@ start_vm(struct imsg *imsg, uint32_t *id)
 			errno = ret;
 			fatal("failed to load kernel - exiting");
 		}
-
-		vmboot_close(kernfp, &vmboot);
 
 		if (vm->vm_kernel != -1)
 			close(vm->vm_kernel);
