@@ -31,7 +31,7 @@
 #include "newd.h"
 
 void
-print_config(struct newd_conf *conf)
+print_config(struct vmd *conf)
 {
 	struct group *g;
 	char buf[INET6_ADDRSTRLEN], *bufp;

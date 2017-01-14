@@ -212,6 +212,10 @@ struct vmd {
 
 	int			 vmd_fd;
 
+	int			 debug;
+	int			 verbose;
+	int			 noaction;
+
 	int			 yesno;
 	int			 integer;
 	char			 global_text[NEWD_MAXTEXT];
