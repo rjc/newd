@@ -56,7 +56,7 @@ static int	main_imsg_send_ipc_sockets(struct imsgbuf *, struct imsgbuf *);
 static int	main_imsg_send_config(struct newd_conf *);
 
 int	main_reload(void);
-int	main_sendboth(enum imsg_type, void *, u_int16_t);
+int	main_sendboth(enum imsg_type, void *, uint16_t);
 void	main_showinfo_ctl(struct imsg *);
 
 struct newd_conf	*main_conf;
@@ -66,6 +66,8 @@ char			*conffile;
 
 pid_t	 frontend_pid;
 pid_t	 engine_pid;
+
+uint32_t cmd_opts;
 
 void
 main_sig_handler(int sig, short event, void *arg)
@@ -104,7 +106,7 @@ int
 main(int argc, char *argv[])
 {
 	struct event	 ev_sigint, ev_sigterm, ev_sighup;
-	int		 ch, opts = 0;
+	int		 ch;
 	int		 debug = 0, engine_flag = 0, frontend_flag = 0;
 	char		*sockname;
 	char		*saved_argv0;
@@ -136,15 +138,15 @@ main(int argc, char *argv[])
 			conffile = optarg;
 			break;
 		case 'n':
-			opts |= OPT_NOACTION;
+			cmd_opts |= OPT_NOACTION;
 			break;
 		case 's':
 			sockname = optarg;
 			break;
 		case 'v':
-			if (opts & OPT_VERBOSE)
-				opts |= OPT_VERBOSE2;
-			opts |= OPT_VERBOSE;
+			if (cmd_opts & OPT_VERBOSE)
+				cmd_opts |= OPT_VERBOSE2;
+			cmd_opts |= OPT_VERBOSE;
 			break;
 		default:
 			usage();
@@ -157,17 +159,17 @@ main(int argc, char *argv[])
 		usage();
 
 	if (engine_flag)
-		engine(debug, opts & OPT_VERBOSE);
+		engine(debug, cmd_opts & OPT_VERBOSE);
 	else if (frontend_flag)
-		frontend(debug, opts & OPT_VERBOSE, sockname);
+		frontend(debug, cmd_opts & OPT_VERBOSE, sockname);
 
 	/* parse config file */
-	if ((main_conf = parse_config(conffile, opts)) == NULL) {
+	if ((main_conf = parse_config(conffile)) == NULL) {
 		exit(1);
 	}
 
-	if (main_conf->opts & OPT_NOACTION) {
-		if (main_conf->opts & OPT_VERBOSE)
+	if (cmd_opts & OPT_NOACTION) {
+		if (cmd_opts & OPT_VERBOSE)
 			print_config(main_conf);
 		else
 			fprintf(stderr, "configuration OK\n");
@@ -183,7 +185,7 @@ main(int argc, char *argv[])
 		errx(1, "unknown user %s", NEWD_USER);
 
 	log_init(debug, LOG_DAEMON);
-	log_setverbose(main_conf->opts & OPT_VERBOSE);
+	log_setverbose(cmd_opts & OPT_VERBOSE);
 
 	if (!debug)
 		daemon(1, 0);
@@ -199,9 +201,9 @@ main(int argc, char *argv[])
 
 	/* Start children. */
 	engine_pid = start_child(PROC_ENGINE, saved_argv0, pipe_main2engine[1],
-	    debug, opts & OPT_VERBOSE, NULL);
+	    debug, cmd_opts & OPT_VERBOSE, NULL);
 	frontend_pid = start_child(PROC_FRONTEND, saved_argv0,
-	    pipe_main2frontend[1], debug, opts & OPT_VERBOSE, sockname);
+	    pipe_main2frontend[1], debug, cmd_opts & OPT_VERBOSE, sockname);
 
 	newd_process = PROC_MAIN;
 	setproctitle(log_procnames[newd_process]);
@@ -243,7 +245,7 @@ main(int argc, char *argv[])
 		fatal("could not establish imsg links");
 	main_imsg_send_config(main_conf);
 
-	if (pledge("stdio sendfd", NULL) == -1)
+	if (pledge("rpath stdio sendfd", NULL) == -1)
 		fatal("pledge");
 
 	event_dispatch();
@@ -264,7 +266,6 @@ main_shutdown(void)
 	msgbuf_clear(&iev_engine->ibuf.w);
 	close(iev_engine->ibuf.fd);
 
-	control_cleanup(main_conf->csock);
 	config_clear(main_conf);
 
 	log_debug("waiting for children to terminate");
@@ -281,7 +282,6 @@ main_shutdown(void)
 
 	free(iev_frontend);
 	free(iev_engine);
-	free(main_conf);
 
 	log_info("terminating");
 	exit(0);
@@ -378,8 +378,8 @@ main_dispatch_frontend(int fd, short event, void *bula)
 			main_showinfo_ctl(&imsg);
 			break;
 		default:
-			log_debug("main_dispatch_frontend: error handling "
-			    "imsg %d", imsg.hdr.type);
+			log_debug("%s: error handling imsg %d", __func__,
+			    imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -425,8 +425,8 @@ main_dispatch_engine(int fd, short event, void *bula)
 
 		switch (imsg.hdr.type) {
 		default:
-			log_debug("main_dispatch_engine: error handling "
-			    "imsg %d", imsg.hdr.type);
+			log_debug("%s: error handling imsg %d", __func__,
+			    imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -441,7 +441,7 @@ main_dispatch_engine(int fd, short event, void *bula)
 }
 
 void
-main_imsg_compose_frontend(int type, pid_t pid, void *data, u_int16_t datalen)
+main_imsg_compose_frontend(int type, pid_t pid, void *data, uint16_t datalen)
 {
 	if (iev_frontend)
 		imsg_compose_event(iev_frontend, type, 0, pid, -1, data,
@@ -449,7 +449,7 @@ main_imsg_compose_frontend(int type, pid_t pid, void *data, u_int16_t datalen)
 }
 
 void
-main_imsg_compose_engine(int type, pid_t pid, void *data, u_int16_t datalen)
+main_imsg_compose_engine(int type, pid_t pid, void *data, uint16_t datalen)
 {
 	if (iev_engine)
 		imsg_compose_event(iev_engine, type, 0, pid, -1, data,
@@ -469,8 +469,8 @@ imsg_event_add(struct imsgev *iev)
 }
 
 int
-imsg_compose_event(struct imsgev *iev, u_int16_t type, u_int32_t peerid,
-    pid_t pid, int fd, void *data, u_int16_t datalen)
+imsg_compose_event(struct imsgev *iev, uint16_t type, uint32_t peerid,
+    pid_t pid, int fd, void *data, uint16_t datalen)
 {
 	int	ret;
 
@@ -506,7 +506,7 @@ main_reload(void)
 {
 	struct newd_conf *xconf;
 
-	if ((xconf = parse_config(conffile, main_conf->opts)) == NULL)
+	if ((xconf = parse_config(conffile)) == NULL)
 		return (-1);
 
 	if (main_imsg_send_config(xconf) == -1)
@@ -540,7 +540,7 @@ main_imsg_send_config(struct newd_conf *xconf)
 }
 
 int
-main_sendboth(enum imsg_type type, void *buf, u_int16_t len)
+main_sendboth(enum imsg_type type, void *buf, uint16_t len)
 {
 	if (imsg_compose_event(iev_frontend, type, 0, 0, -1, buf, len) == -1)
 		return (-1);
@@ -561,21 +561,21 @@ main_showinfo_ctl(struct imsg *imsg)
 		n = strlcpy(cmi.text, "I'm a little teapot.",
 		    sizeof(cmi.text));
 		if (n >= sizeof(cmi.text))
-			log_debug("main_showinfo_ctl: I was cut off!");
+			log_debug("%s: I was cut off!", __func__);
 		main_imsg_compose_frontend(IMSG_CTL_SHOW_MAIN_INFO,
 		    imsg->hdr.pid, &cmi, sizeof(cmi));
 		memset(cmi.text, 0, sizeof(cmi.text));
 		n = strlcpy(cmi.text, "Full of sencha.",
 		    sizeof(cmi.text));
 		if (n >= sizeof(cmi.text))
-			log_debug("main_showinfo_ctl: I was cut off!");
+			log_debug("%s: I was cut off!", __func__);
 		main_imsg_compose_frontend(IMSG_CTL_SHOW_MAIN_INFO,
 		    imsg->hdr.pid, &cmi, sizeof(cmi));
 		main_imsg_compose_frontend(IMSG_CTL_END, imsg->hdr.pid, NULL,
 		    0);
 		break;
 	default:
-		log_debug("main_showinfo_ctl: error handling imsg");
+		log_debug("%s: error handling imsg", __func__);
 		break;
 	}
 }
@@ -585,7 +585,6 @@ merge_config(struct newd_conf *conf, struct newd_conf *xconf)
 {
 	struct group	*g;
 
-	conf->opts = xconf->opts;
 	conf->yesno = xconf->yesno;
 	conf->integer = xconf->integer;
 	memcpy(conf->global_text, xconf->global_text,

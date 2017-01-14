@@ -42,9 +42,10 @@
 __dead void	 frontend_shutdown(void);
 void		 frontend_sig_handler(int, short, void *);
 
-struct newd_conf	*frontend_conf = NULL, *nconf;
+struct newd_conf	*frontend_conf;
 struct imsgev		*iev_main;
 struct imsgev		*iev_engine;
+char			*csock;
 
 void
 frontend_sig_handler(int sig, short event, void *bula)
@@ -63,7 +64,7 @@ frontend_sig_handler(int sig, short event, void *bula)
 	}
 }
 
-pid_t
+void
 frontend(int debug, int verbose, char *sockname)
 {
 	struct event	 ev_sigint, ev_sigterm;
@@ -75,8 +76,8 @@ frontend(int debug, int verbose, char *sockname)
 	log_setverbose(verbose);
 
 	/* Create newd control socket outside chroot. */
-	frontend_conf->csock = strdup(sockname);
-	if (control_init(frontend_conf->csock) == -1)
+	csock = strdup(sockname);
+	if (control_init(csock) == -1)
 		fatalx("control socket setup failed");
 
 	if ((pw = getpwnam(NEWD_USER)) == NULL)
@@ -126,7 +127,6 @@ frontend(int debug, int verbose, char *sockname)
 	event_dispatch();
 
 	frontend_shutdown();
-	return (0);
 }
 
 __dead void
@@ -136,15 +136,15 @@ frontend_shutdown(void)
 	msgbuf_write(&iev_engine->ibuf.w);
 	msgbuf_clear(&iev_engine->ibuf.w);
 	close(iev_engine->ibuf.fd);
-
 	msgbuf_write(&iev_main->ibuf.w);
 	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
 
-	/* Clean up. */
+	control_cleanup(csock);
+	config_clear(frontend_conf);
+
 	free(iev_engine);
 	free(iev_main);
-	free(frontend_conf);
 
 	log_info("frontend exiting");
 	exit(0);
@@ -152,15 +152,15 @@ frontend_shutdown(void)
 
 int
 frontend_imsg_compose_main(int type, pid_t pid, void *data,
-    u_int16_t datalen)
+    uint16_t datalen)
 {
 	return (imsg_compose_event(iev_main, type, 0, pid, -1, data,
 	    datalen));
 }
 
 int
-frontend_imsg_compose_engine(int type, u_int32_t peerid, pid_t pid,
-    void *data, u_int16_t datalen)
+frontend_imsg_compose_engine(int type, uint32_t peerid, pid_t pid,
+    void *data, uint16_t datalen)
 {
 	return (imsg_compose_event(iev_engine, type, peerid, pid, -1,
 	    data, datalen));
@@ -169,11 +169,12 @@ frontend_imsg_compose_engine(int type, u_int32_t peerid, pid_t pid,
 void
 frontend_dispatch_main(int fd, short event, void *bula)
 {
-	struct imsg	 imsg;
-	struct group	*g;
-	struct imsgev	*iev = bula;
-	struct imsgbuf	*ibuf = &iev->ibuf;
-	int		 n, shut = 0;
+	static struct newd_conf	*nconf;
+	struct imsg		 imsg;
+	struct group		*g;
+	struct imsgev		*iev = bula;
+	struct imsgbuf		*ibuf = &iev->ibuf;
+	int			 n, shut = 0;
 
 	if (event & EV_READ) {
 		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
@@ -190,7 +191,7 @@ frontend_dispatch_main(int fd, short event, void *bula)
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("frontend_dispatch_main: imsg_get error");
+			fatal("%s: imsg_get error", __func__);
 		if (n == 0)	/* No more messages. */
 			break;
 
@@ -246,8 +247,8 @@ frontend_dispatch_main(int fd, short event, void *bula)
 			control_imsg_relay(&imsg);
 			break;
 		default:
-			log_debug("frontend_dispatch_main: error handling "
-			    "imsg %d", imsg.hdr.type);
+			log_debug("%s: error handling imsg %d", __func__,
+			    imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -284,7 +285,7 @@ frontend_dispatch_engine(int fd, short event, void *bula)
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("frontend_dispatch_engine: imsg_get error");
+			fatal("%s: imsg_get error", __func__);
 		if (n == 0)	/* No more messages. */
 			break;
 
@@ -294,8 +295,8 @@ frontend_dispatch_engine(int fd, short event, void *bula)
 			control_imsg_relay(&imsg);
 			break;
 		default:
-			log_debug("frontend_dispatch_engine: error handling "
-			    "imsg %d", imsg.hdr.type);
+			log_debug("%s: error handling imsg %d", __func__,
+			    imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -314,7 +315,6 @@ frontend_showinfo_ctl(struct ctl_conn *c)
 {
 	static struct ctl_frontend_info cfi;
 
-	cfi.opts = frontend_conf->opts;
 	cfi.yesno = frontend_conf->yesno;
 	cfi.integer = frontend_conf->integer;
 

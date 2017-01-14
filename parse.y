@@ -84,9 +84,9 @@ char	*symget(const char *);
 void	 clear_config(struct newd_conf *xconf);
 
 static struct newd_conf	*conf;
-static int		 errors = 0;
+static int		 errors;
 
-static struct group	*group = NULL;
+static struct group	*group;
 
 struct group	*conf_get_group(char *);
 void		*conf_del_group(struct group *);
@@ -156,7 +156,7 @@ yesno		: YES	{ $$ = 1; }
 
 varset		: STRING '=' string		{
 			char *s = $1;
-			if (conf->opts & OPT_VERBOSE)
+			if (cmd_opts & OPT_VERBOSE)
 				printf("%s = \"%s\"\n", $1, $3);
 			while (*s++) {
 				if (isspace((unsigned char)*s)) {
@@ -298,10 +298,10 @@ lookup(char *s)
 
 #define MAXPUSHBACK	128
 
-u_char	*parsebuf;
-int	 parseindex;
-u_char	 pushback_buffer[MAXPUSHBACK];
-int	 pushback_index = 0;
+unsigned char	*parsebuf;
+int		 parseindex;
+unsigned char	 pushback_buffer[MAXPUSHBACK];
+int		 pushback_index = 0;
 
 int
 lgetc(int quotec)
@@ -393,10 +393,10 @@ findeol(void)
 int
 yylex(void)
 {
-	u_char	 buf[8096];
-	u_char	*p, *val;
-	int	 quotec, next, c;
-	int	 token;
+	unsigned char	 buf[8096];
+	unsigned char	*p, *val;
+	int		 quotec, next, c;
+	int		 token;
 
 top:
 	p = buf;
@@ -565,11 +565,11 @@ pushfile(const char *name, int secret)
 	struct file	*nfile;
 
 	if ((nfile = calloc(1, sizeof(struct file))) == NULL) {
-		log_warn("malloc");
+		log_warn("calloc");
 		return (NULL);
 	}
 	if ((nfile->name = strdup(name)) == NULL) {
-		log_warn("malloc");
+		log_warn("strdup");
 		free(nfile);
 		return (NULL);
 	}
@@ -607,15 +607,13 @@ popfile(void)
 }
 
 struct newd_conf *
-parse_config(char *filename, int opts)
+parse_config(char *filename)
 {
 	struct sym	*sym, *next;
 
 	conf = config_new_empty();
 
-	conf->opts = opts;
-
-	file = pushfile(filename, !(conf->opts & OPT_NOACTION));
+	file = pushfile(filename, !(cmd_opts & OPT_NOACTION));
 	if (file == NULL) {
 		free(conf);
 		return (NULL);
@@ -630,7 +628,7 @@ parse_config(char *filename, int opts)
 
 	/* Free macros and check which have not been used. */
 	TAILQ_FOREACH_SAFE(sym, &symhead, entry, next) {
-		if ((conf->opts & OPT_VERBOSE2) && !sym->used)
+		if ((cmd_opts & OPT_VERBOSE2) && !sym->used)
 			fprintf(stderr, "warning: macro '%s' not used\n",
 			    sym->nam);
 		if (!sym->persist) {
@@ -762,6 +760,5 @@ clear_config(struct newd_conf *xconf)
 		free(g);
 	}
 
-	free(xconf->csock);
 	free(xconf);
 }

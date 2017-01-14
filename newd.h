@@ -21,6 +21,10 @@
 #define	NEWD_SOCKET		"/var/run/newd.sock"
 #define NEWD_USER		"_newd"
 
+#define OPT_VERBOSE	0x00000001
+#define OPT_VERBOSE2	0x00000002
+#define OPT_NOACTION	0x00000004
+
 #define NEWD_MAXTEXT		256
 #define NEWD_MAXGROUPNAME	16
 
@@ -34,7 +38,6 @@ struct imsgev {
 	struct imsgbuf	 ibuf;
 	void		(*handler)(int, short, void *);
 	struct event	 ev;
-	void		*data;
 	short		 events;
 };
 
@@ -70,11 +73,6 @@ struct group {
 };
 
 struct newd_conf {
-	char		*csock;
-	u_int32_t	opts;
-#define OPT_VERBOSE	0x00000001
-#define OPT_VERBOSE2	0x00000002
-#define OPT_NOACTION	0x00000004
 	int		yesno;
 	int		integer;
 	char		global_text[NEWD_MAXTEXT];
@@ -82,7 +80,6 @@ struct newd_conf {
 };
 
 struct ctl_frontend_info {
-	u_int32_t	opts;
 	int		yesno;
 	int		integer;
 	char		global_text[NEWD_MAXTEXT];
@@ -102,13 +99,16 @@ struct ctl_main_info {
 	char		text[NEWD_MAXTEXT];
 };
 
+extern uint32_t	 cmd_opts;
+extern char	*csock;
+
 /* newd.c */
-void	main_imsg_compose_frontend(int, pid_t, void *, u_int16_t);
-void	main_imsg_compose_engine(int, pid_t, void *, u_int16_t);
+void	main_imsg_compose_frontend(int, pid_t, void *, uint16_t);
+void	main_imsg_compose_engine(int, pid_t, void *, uint16_t);
 void	merge_config(struct newd_conf *, struct newd_conf *);
 void	imsg_event_add(struct imsgev *);
-int	imsg_compose_event(struct imsgev *, u_int16_t, u_int32_t, pid_t,
-	    int, void *, u_int16_t);
+int	imsg_compose_event(struct imsgev *, uint16_t, uint32_t, pid_t,
+	    int, void *, uint16_t);
 
 struct newd_conf       *config_new_empty(void);
 void			config_clear(struct newd_conf *);
@@ -117,7 +117,7 @@ void			config_clear(struct newd_conf *);
 void	print_config(struct newd_conf *);
 
 /* parse.y */
-struct newd_conf	*parse_config(char *, int);
+struct newd_conf	*parse_config(char *);
 int			 cmdline_symset(char *);
 
 /* log.c */
