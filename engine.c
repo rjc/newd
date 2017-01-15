@@ -193,9 +193,6 @@ vmm_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 		break;
 	case IMSG_VMDOP_START_VM_RESPONSE:
 		if (res != 0) {
-			/* Remove local reference if it exists */
-			if ((vm = NULL) != NULL)
-				vm_remove(vm);
 		}
 	case IMSG_VMDOP_TERMINATE_VM_RESPONSE:
 		memset(&vmr, 0, sizeof(vmr));

@@ -76,28 +76,6 @@ struct vmop_create_params {
 #define VMOP_CREATE_DISK	0x08
 };
 
-struct vmd_if {
-	char			*vif_name;
-	char			*vif_switch;
-	char			*vif_group;
-	int			 vif_fd;
-	unsigned int		 vif_flags;
-	TAILQ_ENTRY(vmd_if)	 vif_entry;
-};
-TAILQ_HEAD(viflist, vmd_if);
-
-struct vmd_switch {
-	uint32_t		 sw_id;
-	char			*sw_name;
-	char			 sw_ifname[IF_NAMESIZE];
-	char			*sw_group;
-	unsigned int		 sw_flags;
-	struct viflist		 sw_ifs;
-	int			 sw_running;
-	TAILQ_ENTRY(vmd_switch)	 sw_entry;
-};
-TAILQ_HEAD(switchlist, vmd_switch);
-
 struct vmd_vm {
 	struct vmop_create_params vm_params;
 	pid_t			 vm_pid;
@@ -146,16 +124,6 @@ struct vmd {
 
 /* vmd.c */
 void	 vmd_reload(unsigned int, const char *);
-struct vmd_vm *vm_getbyvmid(uint32_t);
-struct vmd_vm *vm_getbyid(uint32_t);
-struct vmd_vm *vm_getbyname(const char *);
-struct vmd_vm *vm_getbypid(pid_t);
-void	 vm_stop(struct vmd_vm *, int);
-void	 vm_remove(struct vmd_vm *);
-int	 vm_register(struct privsep *, struct vmop_create_params *,
-	    struct vmd_vm **, uint32_t);
-void	 switch_remove(struct vmd_switch *);
-struct vmd_switch *switch_getbyname(const char *);
 char	*get_string(uint8_t *, size_t);
 
 /* vmm.c */
