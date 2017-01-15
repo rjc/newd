@@ -68,28 +68,12 @@ struct vmop_id {
 	uint32_t		 vid_id;
 };
 
-struct vmop_ifreq {
-	uint32_t		 vfr_id;
-	char			 vfr_name[IF_NAMESIZE];
-	char			 vfr_value[16];
-};
-
 struct vmop_create_params {
 	unsigned int		 vmc_flags;
 #define VMOP_CREATE_KERNEL	0x01
 #define VMOP_CREATE_MEMORY	0x02
 #define VMOP_CREATE_NETWORK	0x04
 #define VMOP_CREATE_DISK	0x08
-};
-
-struct vmboot_params {
-	int			 vbp_fd;
-	off_t			 vbp_partoff;
-	char			 vbp_device[NAME_MAX];
-	char			 vbp_image[PATH_MAX];
-	uint32_t		 vbp_bootdev;
-	uint32_t		 vbp_howto;
-	char			*vbp_arg;
 };
 
 struct vmd_if {
@@ -137,42 +121,27 @@ TAILQ_HEAD(vmlist, vmd_vm);
 
 struct group {
 	LIST_ENTRY(group)	 entry;
-	char		name[NEWD_MAXGROUPNAME];
-	int		yesno;
-	int		integer;
-	int		group_v4_bits;
-	int		group_v6_bits;
-	struct in_addr	group_v4address;
-	struct in6_addr	group_v6address;
-};
-
-struct newd_conf {
+	char		newd_group_name[NEWD_MAXGROUPNAME];
+	int		newd_group_yesno;
+	int		newd_group_integer;
+	int		newd_group_v4_bits;
+	int		newd_group_v6_bits;
+	struct in_addr	newd_group_v4address;
+	struct in6_addr	newd_group_v6address;
 };
 
 struct vmd {
-	struct privsep		 vmd_ps;
-	const char		*vmd_conffile;
+	struct privsep		 newd_ps;
+	const char		*newd_conffile;
 
-	int			 vmd_debug;
-	int			 vmd_verbose;
-	int			 vmd_noaction;
+	int			 newd_debug;
+	int			 newd_verbose;
+	int			 newd_noaction;
 
-	uint32_t		 vmd_nvm;
-	struct vmlist		*vmd_vms;
-
-	uint32_t		 vmd_nswitches;
-	struct switchlist	*vmd_switches;
-
-	int			 vmd_fd;
-
-	int			 debug;
-	int			 verbose;
-	int			 noaction;
-
-	int			 yesno;
-	int			 integer;
-	char			 global_text[NEWD_MAXTEXT];
-	LIST_HEAD(, group)	 group_list;
+	int			 newd_yesno;
+	int			 newd_integer;
+	char			 newd_global_text[NEWD_MAXTEXT];
+	LIST_HEAD(, group)	 newd_group_list;
 };
 
 /* vmd.c */
@@ -192,9 +161,6 @@ char	*get_string(uint8_t *, size_t);
 /* vmm.c */
 void	 vmm(struct privsep *, struct privsep_proc *);
 void	 vmm_shutdown(void);
-int	 write_mem(paddr_t, void *buf, size_t);
-int	 read_mem(paddr_t, void *buf, size_t);
-int	 opentap(char *);
 int	 fd_hasdata(int);
 
 /* control.c */

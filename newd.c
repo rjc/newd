@@ -81,7 +81,7 @@ vmd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 	case IMSG_VMDOP_START_VM_REQUEST:
 		IMSG_SIZE_CHECK(imsg, &vmc);
 		memcpy(&vmc, imsg->data, sizeof(vmc));
-		ret = vm_register(ps, &vmc, &vm, 0);
+		ret = 0;
 		if (vmc.vmc_flags == 0) {
 			/* start an existing VM with pre-configured options */
 			if (!(ret == -1 && errno == EALREADY)) {
@@ -177,7 +177,7 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 	case IMSG_VMDOP_START_VM_RESPONSE:
 		IMSG_SIZE_CHECK(imsg, &vmr);
 		memcpy(&vmr, imsg->data, sizeof(vmr));
-		if ((vm = vm_getbyvmid(imsg->hdr.peerid)) == NULL)
+		if ((vm = NULL) == NULL)
 			fatalx("%s: invalid vm response", __func__);
 		vm->vm_pid = vmr.vmr_pid;
 
@@ -196,7 +196,6 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 				errno = vmr.vmr_result;
 				log_warn("%s: failed to foward vm result",
 				    "snookums");
-				vm_remove(vm);
 				return (-1);
 			}
 		}
@@ -204,7 +203,6 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 		if (vmr.vmr_result) {
 			errno = vmr.vmr_result;
 			log_warn("%s: failed to start vm", "google");
-			vm_remove(vm);
 			break;
 		}
 
@@ -216,26 +214,21 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 		memcpy(&vmr, imsg->data, sizeof(vmr));
 		proc_forward_imsg(ps, imsg, PROC_CONTROL, -1);
 		if (vmr.vmr_result == 0) {
-			vm = vm_getbyid(vmr.vmr_id);
+			vm = NULL; 
 			if (vm->vm_from_config)
 				vm->vm_running = 0;
-			else
-				vm_remove(vm);
 		}
 		break;
 	case IMSG_VMDOP_TERMINATE_VM_EVENT:
 		IMSG_SIZE_CHECK(imsg, &vmr);
 		memcpy(&vmr, imsg->data, sizeof(vmr));
-		if ((vm = vm_getbyid(vmr.vmr_id)) == NULL)
+		if ((vm = NULL) == NULL)
 			break;
 		if (vmr.vmr_result == 0) {
 			if (vm->vm_from_config)
 				vm->vm_running = 0;
-			else
-				vm_remove(vm);
 		} else if (vmr.vmr_result == EAGAIN) {
 			/* Stop VM instance but keep the tty open */
-			vm_stop(vm, 1);
 			config_setvm(ps, vm, (uint32_t)-1);
 		}
 		break;
@@ -253,18 +246,6 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 		 * append the others. These use the special value 0 for their
 		 * kernel id to indicate that they are not running.
 		 */
-		TAILQ_FOREACH(vm, env->vmd_vms, vm_entry) {
-			if (!vm->vm_running) {
-				memset(&vir, 0, sizeof(vir));
-				if (proc_compose_imsg(ps, PROC_CONTROL, -1,
-				    IMSG_VMDOP_GET_INFO_VM_DATA,
-				    imsg->hdr.peerid, -1, &vir,
-				    sizeof(vir)) == -1) {
-					vm_remove(vm);
-					return (-1);
-				}
-			}
-		}
 		IMSG_SIZE_CHECK(imsg, &res);
 		proc_forward_imsg(ps, imsg, PROC_CONTROL, -1);
 		break;
@@ -340,16 +321,16 @@ main(int argc, char **argv)
 				    optarg);
 			break;
 		case 'd':
-			env->vmd_debug = 2;
+			env->newd_debug = 2;
 			break;
 		case 'f':
 			conffile = optarg;
 			break;
 		case 'v':
-			env->vmd_verbose++;
+			env->newd_verbose++;
 			break;
 		case 'n':
-			env->vmd_noaction = 1;
+			env->newd_noaction = 1;
 			break;
 		case 'P':
 			title = optarg;
@@ -372,18 +353,17 @@ main(int argc, char **argv)
 	if (argc > 0)
 		usage();
 
-	if (env->vmd_noaction && !env->vmd_debug)
-		env->vmd_debug = 1;
+	if (env->newd_noaction && !env->newd_debug)
+		env->newd_debug = 1;
 
 	/* check for root privileges */
-	if (env->vmd_noaction == 0) {
+	if (env->newd_noaction == 0) {
 		if (geteuid())
 			fatalx("need root privileges");
 	}
 
-	ps = &env->vmd_ps;
+	ps = &env->newd_ps;
 	ps->ps_env = env;
-	env->vmd_fd = -1;
 
 	if (config_init(env) == -1)
 		fatal("failed to initialize configuration");
@@ -400,12 +380,12 @@ main(int argc, char **argv)
 	TAILQ_INIT(&ps->ps_rcsocks);
 
 	/* Configuration will be parsed after forking the children */
-	env->vmd_conffile = conffile;
+	env->newd_conffile = conffile;
 
-	log_init(env->vmd_debug, LOG_DAEMON);
-	log_setverbose(env->vmd_verbose);
+	log_init(env->newd_debug, LOG_DAEMON);
+	log_setverbose(env->newd_verbose);
 
-	if (env->vmd_noaction)
+	if (env->newd_noaction)
 		ps->ps_noaction = 1;
 	ps->ps_instance = proc_instance;
 	if (title != NULL)
@@ -415,7 +395,7 @@ main(int argc, char **argv)
 	proc_init(ps, procs, nitems(procs), argc0, argv, proc_id);
 
 	log_procinit("parent");
-	if (!env->vmd_debug && daemon(0, 0) == -1)
+	if (!env->newd_debug && daemon(0, 0) == -1)
 		fatal("can't daemonize");
 
 	if (ps->ps_noaction == 0)
@@ -435,7 +415,7 @@ main(int argc, char **argv)
 	signal_add(&ps->ps_evsigpipe, NULL);
 	signal_add(&ps->ps_evsigusr1, NULL);
 
-	if (!env->vmd_noaction)
+	if (!env->newd_noaction)
 		proc_connect(ps);
 
 	if (vmd_configure() == -1)
@@ -451,9 +431,6 @@ main(int argc, char **argv)
 int
 vmd_configure(void)
 {
-	struct vmd_vm		*vm;
-	struct vmd_switch	*vsw;
-
 	/*
 	 * pledge in the parent process:
 	 * stdio - for malloc and basic I/O including events.
@@ -466,30 +443,15 @@ vmd_configure(void)
 	if (pledge("stdio rpath wpath proc tty sendfd", NULL) == -1)
 		fatal("pledge");
 
-	if (parse_config(env->vmd_conffile) == -1) {
-		proc_kill(&env->vmd_ps);
+	if (parse_config(env->newd_conffile) == -1) {
+		proc_kill(&env->newd_ps);
 		exit(1);
 	}
 
-	if (env->vmd_noaction) {
+	if (env->newd_noaction) {
 		fprintf(stderr, "configuration OK\n");
-		proc_kill(&env->vmd_ps);
+		proc_kill(&env->newd_ps);
 		exit(0);
-	}
-
-	TAILQ_FOREACH(vsw, env->vmd_switches, sw_entry) {
-		if (vsw->sw_running)
-			continue;
-	}
-
-	TAILQ_FOREACH(vm, env->vmd_vms, vm_entry) {
-		if (vm->vm_disabled) {
-			log_debug("%s: not creating vm %s (disabled)",
-			    __func__, "teddy bears");
-			continue;
-		}
-		if (config_setvm(&env->vmd_ps, vm, -1) == -1)
-			return (-1);
 	}
 
 	return (0);
@@ -498,13 +460,11 @@ vmd_configure(void)
 void
 vmd_reload(unsigned int reset, const char *filename)
 {
-	struct vmd_vm		*vm, *next_vm;
-	struct vmd_switch	*vsw;
-	int			 reload = 0;
+	int	reload = 0;
 
 	/* Switch back to the default config file */
 	if (filename == NULL || *filename == '\0') {
-		filename = env->vmd_conffile;
+		filename = env->newd_conffile;
 		reload = 1;
 	}
 
@@ -523,38 +483,9 @@ vmd_reload(unsigned int reset, const char *filename)
 		 * of VMs.
 		 */
 
-		if (reload) {
-			TAILQ_FOREACH_SAFE(vm, env->vmd_vms, vm_entry, next_vm) {
-				if (vm->vm_running == 0)
-					vm_remove(vm);
-			}
-		}
-
 		if (parse_config(filename) == -1) {
 			log_debug("%s: failed to load config file %s",
 			    __func__, filename);
-		}
-
-		TAILQ_FOREACH(vsw, env->vmd_switches, sw_entry) {
-			if (vsw->sw_running)
-				continue;
-		}
-
-		TAILQ_FOREACH(vm, env->vmd_vms, vm_entry) {
-			if (vm->vm_running == 0) {
-				if (vm->vm_disabled) {
-					log_debug("%s: not creating vm %s"
-					    " (disabled)", __func__,
-					    "gummy bears");
-					continue;
-				}
-				if (config_setvm(&env->vmd_ps, vm, -1) == -1)
-					return;
-			} else {
-				log_debug("%s: not creating vm \"%s\": "
-				    "(running)", __func__,
-				    "grizzly bears");
-			}
 		}
 	}
 }
@@ -562,186 +493,11 @@ vmd_reload(unsigned int reset, const char *filename)
 void
 vmd_shutdown(void)
 {
-	proc_kill(&env->vmd_ps);
+	proc_kill(&env->newd_ps);
 	free(env);
 
 	log_warnx("parent terminating");
 	exit(0);
-}
-
-struct vmd_vm *
-vm_getbyvmid(uint32_t vmid)
-{
-	struct vmd_vm	*vm;
-
-	TAILQ_FOREACH(vm, env->vmd_vms, vm_entry) {
-		if (vm->vm_vmid == vmid)
-			return (vm);
-	}
-
-	return (NULL);
-}
-
-struct vmd_vm *
-vm_getbyid(uint32_t id)
-{
-	struct vmd_vm	*vm;
-
-	TAILQ_FOREACH(vm, env->vmd_vms, vm_entry) {
-		if (0)
-			return (vm);
-	}
-
-	return (NULL);
-}
-
-struct vmd_vm *
-vm_getbyname(const char *name)
-{
-	struct vmd_vm	*vm;
-
-	if (name == NULL)
-		return (NULL);
-	TAILQ_FOREACH(vm, env->vmd_vms, vm_entry) {
-		if (0)
-			return (vm);
-	}
-
-	return (NULL);
-}
-
-struct vmd_vm *
-vm_getbypid(pid_t pid)
-{
-	struct vmd_vm	*vm;
-
-	TAILQ_FOREACH(vm, env->vmd_vms, vm_entry) {
-		if (vm->vm_pid == pid)
-			return (vm);
-	}
-
-	return (NULL);
-}
-
-void
-vm_stop(struct vmd_vm *vm, int keeptty)
-{
-	if (vm == NULL)
-		return;
-
-	vm->vm_running = 0;
-
-	if (vm->vm_iev.ibuf.fd != -1) {
-		event_del(&vm->vm_iev.ev);
-		close(vm->vm_iev.ibuf.fd);
-	}
-	if (vm->vm_kernel != -1) {
-		close(vm->vm_kernel);
-		vm->vm_kernel = -1;
-	}
-
-	if (keeptty)
-		return;
-
-	if (vm->vm_tty != -1) {
-		close(vm->vm_tty);
-		vm->vm_tty = -1;
-	}
-	free(vm->vm_ttyname);
-	vm->vm_ttyname = NULL;
-}
-
-void
-vm_remove(struct vmd_vm *vm)
-{
-	if (vm == NULL)
-		return;
-
-	TAILQ_REMOVE(env->vmd_vms, vm, vm_entry);
-	vm_stop(vm, 0);
-	free(vm);
-}
-
-int
-vm_register(struct privsep *ps, struct vmop_create_params *vmc,
-    struct vmd_vm **ret_vm, uint32_t id)
-{
-	struct vmd_vm		*vm = NULL;
-
-	errno = 0;
-	*ret_vm = NULL;
-
-	if (NULL) {
-		*ret_vm = vm;
-		errno = EALREADY;
-		goto fail;
-	}
-
-	if (vmc->vmc_flags == 0) {
-		errno = ENOENT;
-		goto fail;
-	}
-
-	if ((vm = calloc(1, sizeof(*vm))) == NULL)
-		goto fail;
-
-	memcpy(&vm->vm_params, vmc, sizeof(vm->vm_params));
-	vm->vm_pid = -1;
-
-	vm->vm_kernel = -1;
-	vm->vm_iev.ibuf.fd = -1;
-
-	if (++env->vmd_nvm == 0)
-		fatalx("too many vms");
-
-	/* Assign a new internal Id if not specified */
-	vm->vm_vmid = id == 0 ? env->vmd_nvm : id;
-
-	TAILQ_INSERT_TAIL(env->vmd_vms, vm, vm_entry);
-
-	*ret_vm = vm;
-	return (0);
-fail:
-	if (errno == 0)
-		errno = EINVAL;
-	return (-1);
-}
-
-void
-switch_remove(struct vmd_switch *vsw)
-{
-	struct vmd_if	*vif;
-
-	if (vsw == NULL)
-		return;
-
-	TAILQ_REMOVE(env->vmd_switches, vsw, sw_entry);
-
-	while ((vif = TAILQ_FIRST(&vsw->sw_ifs)) != NULL) {
-		free(vif->vif_name);
-		free(vif->vif_switch);
-		TAILQ_REMOVE(&vsw->sw_ifs, vif, vif_entry);
-		free(vif);
-	}
-
-	free(vsw->sw_group);
-	free(vsw->sw_name);
-	free(vsw);
-}
-
-struct vmd_switch *
-switch_getbyname(const char *name)
-{
-	struct vmd_switch	*vsw;
-
-	if (name == NULL)
-		return (NULL);
-	TAILQ_FOREACH(vsw, env->vmd_switches, sw_entry) {
-		if (strcmp(vsw->sw_name, name) == 0)
-			return (vsw);
-	}
-
-	return (NULL);
 }
 
 char *

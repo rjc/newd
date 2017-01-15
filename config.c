@@ -46,7 +46,7 @@ const char *vmd_descsw[] = { "switch", "bridge", NULL };
 int
 config_init(struct vmd *env)
 {
-	struct privsep	*ps = &env->vmd_ps;
+	struct privsep	*ps = &env->newd_ps;
 	unsigned int	 what;
 
 	/* Global configuration */
@@ -56,17 +56,6 @@ config_init(struct vmd *env)
 
 	/* Other configuration */
 	what = ps->ps_what[privsep_process];
-	if (what & CONFIG_VMS) {
-		if ((env->vmd_vms = calloc(1, sizeof(*env->vmd_vms))) == NULL)
-			return (-1);
-		TAILQ_INIT(env->vmd_vms);
-	}
-	if (what & CONFIG_SWITCHES) {
-		if ((env->vmd_switches = calloc(1,
-		    sizeof(*env->vmd_switches))) == NULL)
-			return (-1);
-		TAILQ_INIT(env->vmd_switches);
-	}
 
 	return (0);
 }
@@ -74,28 +63,16 @@ config_init(struct vmd *env)
 void
 config_purge(struct vmd *env, unsigned int reset)
 {
-	struct privsep		*ps = &env->vmd_ps;
-	struct vmd_vm		*vm;
-	struct vmd_switch	*vsw;
+	struct privsep		*ps = &env->newd_ps;
 	unsigned int		 what;
 
 	what = ps->ps_what[privsep_process] & reset;
-	if (what & CONFIG_VMS && env->vmd_vms != NULL) {
-		while ((vm = TAILQ_FIRST(env->vmd_vms)) != NULL)
-			vm_remove(vm);
-		env->vmd_nvm = 0;
-	}
-	if (what & CONFIG_SWITCHES && env->vmd_switches != NULL) {
-		while ((vsw = TAILQ_FIRST(env->vmd_switches)) != NULL)
-			switch_remove(vsw);
-		env->vmd_nswitches = 0;
-	}
 }
 
 int
 config_setreset(struct vmd *env, unsigned int reset)
 {
-	struct privsep	*ps = &env->vmd_ps;
+	struct privsep	*ps = &env->newd_ps;
 	unsigned int	 id;
 
 	for (id = 0; id < PROC_MAX; id++) {
@@ -202,7 +179,6 @@ config_setvm(struct privsep *ps, struct vmd_vm *vm, uint32_t peerid)
 	if (kernfd != -1)
 		close(kernfd);
 
-	vm_remove(vm);
 	errno = saved_errno;
 	if (errno == 0)
 		errno = EINVAL;
@@ -219,7 +195,7 @@ config_getvm(struct privsep *ps, struct imsg *imsg)
 	memcpy(&vmc, imsg->data, sizeof(vmc));
 
 	errno = 0;
-	if (vm_register(ps, &vmc, &vm, imsg->hdr.peerid) == -1)
+	if (-1)
 		goto fail;
 
 	/* If the fd is -1, the kernel will be searched on the disk */
@@ -234,7 +210,6 @@ config_getvm(struct privsep *ps, struct imsg *imsg)
 		imsg->fd = -1;
 	}
 
-	vm_remove(vm);
 	if (errno == 0)
 		errno = EINVAL;
 
@@ -248,7 +223,7 @@ config_getdisk(struct privsep *ps, struct imsg *imsg)
 	unsigned int	 n;
 
 	errno = 0;
-	if ((vm = vm_getbyvmid(imsg->hdr.peerid)) == NULL) {
+	if ((vm = NULL) == NULL) {
 		errno = ENOENT;
 		return (-1);
 	}
@@ -268,11 +243,10 @@ config_getdisk(struct privsep *ps, struct imsg *imsg)
 int
 config_getif(struct privsep *ps, struct imsg *imsg)
 {
-	struct vmd_vm	*vm;
 	unsigned int	 n;
 
 	errno = 0;
-	if ((vm = vm_getbyvmid(imsg->hdr.peerid)) == NULL) {
+	if (NULL) {
 		errno = ENOENT;
 		return (-1);
 	}

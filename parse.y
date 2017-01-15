@@ -109,7 +109,7 @@ typedef struct {
 
 %token	<v.string>	STRING
 %token	<v.number>	NUMBER
-%type	<v.number>	yesno
+%type	<v.number>	newd_yesno
 %type	<v.string>	string
 
 %%
@@ -151,13 +151,13 @@ string		: string STRING	{
 		| STRING
 		;
 
-yesno		: YES	{ $$ = 1; }
+newd_yesno		: YES	{ $$ = 1; }
 		| NO	{ $$ = 0; }
 		;
 
 varset		: STRING '=' string		{
 			char *s = $1;
-			if (env->verbose)
+			if (env->newd_verbose)
 				printf("%s = \"%s\"\n", $1, $3);
 			while (*s++) {
 				if (isspace((unsigned char)*s)) {
@@ -173,20 +173,20 @@ varset		: STRING '=' string		{
 		}
 		;
 
-conf_main	: YESNO yesno {
-			env->yesno = $2;
+conf_main	: YESNO newd_yesno {
+			env->newd_yesno = $2;
 		}
 		| INTEGER NUMBER {
-			env->integer = $2;
+			env->newd_integer = $2;
 		}
 		| GLOBAL_TEXT STRING {
 			size_t n;
-			memset(env->global_text, 0,
-			    sizeof(env->global_text));
-			n = strlcpy(env->global_text, $2,
-			    sizeof(env->global_text));
-			if (n >= sizeof(env->global_text)) {
-				yyerror("error parsing global_text: too long");
+			memset(env->newd_global_text, 0,
+			    sizeof(env->newd_global_text));
+			n = strlcpy(env->newd_global_text, $2,
+			    sizeof(env->newd_global_text));
+			if (n >= sizeof(env->newd_global_text)) {
+				yyerror("error parsing newd_global_text: too long");
 				free($2);
 				YYERROR;
 			}
@@ -211,34 +211,34 @@ groupopts_l	: groupopts_l groupoptsl nl
 		;
 
 groupoptsl	: GROUP_V4ADDRESS STRING {
-			memset(&group->group_v4address, 0,
-			    sizeof(group->group_v4address));
-			group->group_v4_bits = inet_net_pton(AF_INET, $2,
-			    &group->group_v4address,
-			    sizeof(group->group_v4address));
-			if (group->group_v4_bits == -1) {
-				yyerror("error parsing group_v4address");
+			memset(&group->newd_group_v4address, 0,
+			    sizeof(group->newd_group_v4address));
+			group->newd_group_v4_bits = inet_net_pton(AF_INET, $2,
+			    &group->newd_group_v4address,
+			    sizeof(group->newd_group_v4address));
+			if (group->newd_group_v4_bits == -1) {
+				yyerror("error parsing newd_group_v4address");
 				free($2);
 				YYERROR;
 			}
 		}
 		| GROUP_V6ADDRESS STRING {
-			memset(&group->group_v6address, 0,
-			    sizeof(group->group_v6address));
-			group->group_v6_bits = inet_net_pton(AF_INET6, $2,
-			    &group->group_v6address,
-			    sizeof(group->group_v6address));
-			if (group->group_v6_bits == -1) {
-				yyerror("error parsing group_v6address");
+			memset(&group->newd_group_v6address, 0,
+			    sizeof(group->newd_group_v6address));
+			group->newd_group_v6_bits = inet_net_pton(AF_INET6, $2,
+			    &group->newd_group_v6address,
+			    sizeof(group->newd_group_v6address));
+			if (group->newd_group_v6_bits == -1) {
+				yyerror("error parsing newd_group_v6address");
 				free($2);
 				YYERROR;
 			}
 		}
-		| YESNO yesno {
-			group->yesno = $2;
+		| YESNO newd_yesno {
+			group->newd_group_yesno = $2;
 		}
 		| INTEGER NUMBER {
-			group->integer = $2;
+			group->newd_group_integer = $2;
 		}
 		;
 
@@ -281,10 +281,10 @@ lookup(char *s)
 		{"group-v4address",	GROUP_V4ADDRESS},
 		{"group-v6address",	GROUP_V6ADDRESS},
 		{"include",		INCLUDE},
-		{"integer",		INTEGER},
+		{"newd_integer",		INTEGER},
 		{"no",			NO},
 		{"yes",			YES},
-		{"yesno",		YESNO}
+		{"newd_yesno",		YESNO}
 	};
 	const struct keywords	*p;
 
@@ -619,7 +619,7 @@ parse_config(const char *filename)
 	}
 	topfile = file;
 
-	LIST_INIT(&env->group_list);
+	LIST_INIT(&env->newd_group_list);
 
 	yyparse();
 	errors = file->errors;
@@ -627,7 +627,7 @@ parse_config(const char *filename)
 
 	/* Free macros and check which have not been used. */
 	TAILQ_FOREACH_SAFE(sym, &symhead, entry, next) {
-		if ((env->verbose > 1) && !sym->used)
+		if ((env->newd_verbose > 1) && !sym->used)
 			fprintf(stderr, "warning: macro '%s' not used\n",
 			    sym->nam);
 		if (!sym->persist) {
@@ -726,23 +726,23 @@ conf_get_group(char *name)
 	struct group	*g;
 	size_t		n;
 
-	LIST_FOREACH(g, &env->group_list, entry) {
-		if (strcmp(name, g->name) == 0)
+	LIST_FOREACH(g, &env->newd_group_list, entry) {
+		if (strcmp(name, g->newd_group_name) == 0)
 			return (g);
 	}
 
 	g = calloc(1, sizeof(*g));
 	if (g == NULL)
 		errx(1, "get_group: calloc");
-	n = strlcpy(g->name, name, sizeof(g->name));
-	if (n >= sizeof(g->name))
+	n = strlcpy(g->newd_group_name, name, sizeof(g->newd_group_name));
+	if (n >= sizeof(g->newd_group_name))
 		errx(1, "get_group: name too long");
 
 	/* Inherit attributes set in global section. */
-	g->yesno = env->yesno;
-	g->integer = env->integer;
+	g->newd_group_yesno = env->newd_yesno;
+	g->newd_group_integer = env->newd_integer;
 
-	LIST_INSERT_HEAD(&env->group_list, g, entry);
+	LIST_INSERT_HEAD(&env->newd_group_list, g, entry);
 
 	return (g);
 }
@@ -752,7 +752,7 @@ clear_config(struct vmd *xconf)
 {
 	struct group	*g;
 
-	while ((g = LIST_FIRST(&xconf->group_list)) != NULL) {
+	while ((g = LIST_FIRST(&xconf->newd_group_list)) != NULL) {
 		LIST_REMOVE(g, entry);
 		free(g);
 	}

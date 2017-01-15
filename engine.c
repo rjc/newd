@@ -137,7 +137,7 @@ vmm_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 		memcpy(&mode, imsg->data, sizeof(mode));
 		id = 1;
 
-		if ((vm = vm_getbyid(id)) != NULL &&
+		if ((vm = NULL) != NULL &&
 		    vm->vm_shutdown == 0) {
 			log_debug("%s: sending shutdown request to vm %d",
 			    __func__, id);
@@ -158,7 +158,6 @@ vmm_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 		} else {
 			/* Terminate VMs that are unknown or shutting down */
 			res = 0;
-			vm_remove(vm);
 		}
 		cmd = IMSG_VMDOP_TERMINATE_VM_RESPONSE;
 		break;
@@ -183,12 +182,7 @@ vmm_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 		memcpy(&verbose, imsg->data, sizeof(verbose));
 		log_setverbose(verbose);
 
-		/* Forward message to each VM process */
-		TAILQ_FOREACH(vm, env->vmd_vms, vm_entry) {
-			imsg_compose_event(&vm->vm_iev,
-			    imsg->hdr.type, imsg->hdr.peerid, imsg->hdr.pid,
-			    -1, &verbose, sizeof(verbose));
-		}
+		/* Forward message to each process */
 		break;
 	default:
 		return (-1);
@@ -200,7 +194,7 @@ vmm_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 	case IMSG_VMDOP_START_VM_RESPONSE:
 		if (res != 0) {
 			/* Remove local reference if it exists */
-			if ((vm = vm_getbyvmid(imsg->hdr.peerid)) != NULL)
+			if ((vm = NULL) != NULL)
 				vm_remove(vm);
 		}
 	case IMSG_VMDOP_TERMINATE_VM_RESPONSE:
@@ -239,7 +233,7 @@ vmm_sighdlr(int sig, short event, void *arg)
 				continue;
 
 			if (WIFEXITED(status) || WIFSIGNALED(status)) {
-				vm = vm_getbypid(pid);
+				vm = NULL;
 				if (vm == NULL) {
 					/*
 					 * If the VM is gone already, it
@@ -270,8 +264,6 @@ vmm_sighdlr(int sig, short event, void *arg)
 				} else
 					log_warnx("could not terminate VM %u",
 					    vmid);
-
-				vm_remove(vm);
 			} else
 				fatalx("unexpected cause of SIGCHLD");
 		} while (pid > 0 || (pid == -1 && errno == EINTR));
@@ -283,17 +275,12 @@ vmm_sighdlr(int sig, short event, void *arg)
 
 /*
  * vmm_shutdown
- * 
+ *
  * Terminate VMs on shutdown to avoid "zombie VM" processes.
  */
 void
 vmm_shutdown(void)
 {
-	struct vmd_vm *vm, *vm_next;
-
-	TAILQ_FOREACH_SAFE(vm, env->vmd_vms, vm_entry, vm_next) {
-		vm_remove(vm);
-	}
 }
 
 int
