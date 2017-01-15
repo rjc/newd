@@ -53,7 +53,7 @@ int	 newd_control_run(void);
 int	 newd_dispatch_control(int, struct privsep_proc *, struct imsg *);
 int	 newd_dispatch_engine(int, struct privsep_proc *, struct imsg *);
 
-struct vmd	*env;
+struct newd	*env;
 
 static struct privsep_proc procs[] = {
 	{ "control",	PROC_CONTROL,	newd_dispatch_control, control },

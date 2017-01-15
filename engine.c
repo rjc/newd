@@ -47,24 +47,20 @@
 
 void vmm_sighdlr(int, short, void *);
 int opentap(char *);
-int get_info_vm(struct privsep *, struct imsg *, int);
-int vmm_dispatch_parent(int, struct privsep_proc *, struct imsg *);
+int engine_dispatch_parent(int, struct privsep_proc *, struct imsg *);
 void vmm_run(struct privsep *, struct privsep_proc *, void *);
-int vcpu_pic_intr(uint32_t, uint32_t, uint8_t);
 
 int vmm_pipe(struct vmd_vm *, int, void (*)(int, short, void *));
-void vmm_dispatch_vm(int, short, void *);
-void vm_dispatch_engine(int, short, void *);
 
 int con_fd;
 struct vmd_vm *current_vm;
 
-extern struct vmd *env;
+extern struct newd *env;
 
 extern char *__progname;
 
 static struct privsep_proc procs[] = {
-	{ "parent",	PROC_PARENT,	vmm_dispatch_parent  },
+	{ "parent",	PROC_PARENT,	engine_dispatch_parent  },
 };
 
 void
@@ -92,13 +88,10 @@ vmm_run(struct privsep *ps, struct privsep_proc *p, void *arg)
 	 */
 	if (pledge("stdio vmm recvfd proc", NULL) == -1)
 		fatal("pledge");
-
-	/* Get and terminate all running VMs */
-	get_info_vm(ps, NULL, 1);
 }
 
 int
-vmm_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
+engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 {
 	struct privsep		*ps = p->p_ps;
 	int			 res = 0, cmd = 0, verbose;
@@ -162,7 +155,7 @@ vmm_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 		cmd = IMSG_VMDOP_TERMINATE_VM_RESPONSE;
 		break;
 	case IMSG_VMDOP_GET_INFO_VM_REQUEST:
-		res = get_info_vm(ps, imsg, 0);
+		res = 0;
 		cmd = IMSG_VMDOP_GET_INFO_VM_END_DATA;
 		break;
 	case IMSG_CTL_RESET:
@@ -289,127 +282,5 @@ vmm_pipe(struct vmd_vm *vm, int fd, void (*cb)(int, short, void *))
 	iev->data = vm;
 	imsg_event_add(iev);
 
-	return (0);
-}
-
-void
-vmm_dispatch_vm(int fd, short event, void *arg)
-{
-	struct vmd_vm		*vm = arg;
-	struct imsgev		*iev = &vm->vm_iev;
-	struct imsgbuf		*ibuf = &iev->ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
-			fatal("%s: imsg_read", __func__);
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			return;
-		}
-	}
-
-	if (event & EV_WRITE) {
-		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
-			fatal("%s: msgbuf_write fd %d", __func__, ibuf->fd);
-		if (n == 0) {
-			/* this pipe is dead, so remove the event handler */
-			event_del(&iev->ev);
-			return;
-		}
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("%s: imsg_get", __func__);
-		if (n == 0)
-			break;
-
-#if DEBUG > 1
-		log_debug("%s: got imsg %d from %s",
-		    __func__, imsg.hdr.type,
-		    vm->vm_params.vmc_params.vcp_name);
-#endif
-
-		switch (imsg.hdr.type) {
-		default:
-			fatalx("%s: got invalid imsg %d", __func__,
-			    imsg.hdr.type);
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-void
-vm_dispatch_engine(int fd, short event, void *arg)
-{
-	struct vmd_vm		*vm = arg;
-	struct imsgev		*iev = &vm->vm_iev;
-	struct imsgbuf		*ibuf = &iev->ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-	int			 verbose;
-
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
-			fatal("%s: imsg_read", __func__);
-		if (n == 0)
-			_exit(0);
-	}
-
-	if (event & EV_WRITE) {
-		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
-			fatal("%s: msgbuf_write fd %d", __func__, ibuf->fd);
-		if (n == 0)
-			_exit(0);
-	}
-
-	for (;;) {
-		if ((n = imsg_get(ibuf, &imsg)) == -1)
-			fatal("%s: imsg_get", __func__);
-		if (n == 0)
-			break;
-
-#if DEBUG > 1
-		log_debug("%s: got imsg %d from %s",
-		    __func__, imsg.hdr.type,
-		    vm->vm_params.vmc_params.vcp_name);
-#endif
-
-		switch (imsg.hdr.type) {
-		case IMSG_CTL_VERBOSE:
-			IMSG_SIZE_CHECK(&imsg, &verbose);
-			memcpy(&verbose, imsg.data, sizeof(verbose));
-			log_setverbose(verbose);
-			break;
-		case IMSG_VMDOP_VM_SHUTDOWN:
-			break;
-		case IMSG_VMDOP_VM_REBOOT:
-			break;
-		default:
-			fatalx("%s: got invalid imsg %d",
-			    __func__, imsg.hdr.type);
-		}
-		imsg_free(&imsg);
-	}
-	imsg_event_add(iev);
-}
-
-int
-get_info_vm(struct privsep *ps, struct imsg *imsg, int terminate)
-{
-	size_t i;
-	char vir[22];
-
-	/* Return info */
-	for (i = 0; i < 1; i++) {
-		if (proc_compose_imsg(ps, PROC_PARENT, -1,
-		    IMSG_VMDOP_GET_INFO_VM_DATA, imsg->hdr.peerid, -1,
-		    &vir, sizeof(vir)) == -1)
-			return (EIO);
-	}
 	return (0);
 }

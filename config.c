@@ -40,11 +40,8 @@
 #include "proc.h"
 #include "newd.h"
 
-/* Supported bridge types */
-const char *vmd_descsw[] = { "switch", "bridge", NULL };
-
 int
-config_init(struct vmd *env)
+config_init(struct newd *env)
 {
 	struct privsep	*ps = &env->newd_ps;
 	unsigned int	 what;
@@ -60,7 +57,7 @@ config_init(struct vmd *env)
 }
 
 void
-config_purge(struct vmd *env, unsigned int reset)
+config_purge(struct newd *env, unsigned int reset)
 {
 	struct privsep		*ps = &env->newd_ps;
 	unsigned int		 what;
@@ -69,7 +66,7 @@ config_purge(struct vmd *env, unsigned int reset)
 }
 
 int
-config_setreset(struct vmd *env, unsigned int reset)
+config_setreset(struct newd *env, unsigned int reset)
 {
 	struct privsep	*ps = &env->newd_ps;
 	unsigned int	 id;
@@ -85,7 +82,7 @@ config_setreset(struct vmd *env, unsigned int reset)
 }
 
 int
-config_getreset(struct vmd *env, struct imsg *imsg)
+config_getreset(struct newd *env, struct imsg *imsg)
 {
 	unsigned int	 mode;
 

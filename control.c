@@ -49,12 +49,12 @@ struct ctl_conn
 	*control_connbyfd(int);
 void	 control_close(int, struct control_sock *);
 void	 control_dispatch_imsg(int, short, void *);
-int	 control_dispatch_vmd(int, struct privsep_proc *, struct imsg *);
+int	 control_dispatch_newd(int, struct privsep_proc *, struct imsg *);
 void	 control_imsg_forward(struct imsg *);
 void	 control_run(struct privsep *, struct privsep_proc *, void *);
 
 static struct privsep_proc procs[] = {
-	{ "parent",	PROC_PARENT,	control_dispatch_vmd }
+	{ "parent",	PROC_PARENT,	control_dispatch_newd }
 };
 
 void
@@ -68,7 +68,7 @@ control_run(struct privsep *ps, struct privsep_proc *p, void *arg)
 {
 	/*
 	 * pledge in the control process:
- 	 * stdio - for malloc and basic I/O including events.
+	 * stdio - for malloc and basic I/O including events.
 	 * cpath - for managing the control socket.
 	 * unix - for the control socket.
 	 * recvfd - for the proc fd exchange.
@@ -78,7 +78,7 @@ control_run(struct privsep *ps, struct privsep_proc *p, void *arg)
 }
 
 int
-control_dispatch_vmd(int fd, struct privsep_proc *p, struct imsg *imsg)
+control_dispatch_newd(int fd, struct privsep_proc *p, struct imsg *imsg)
 {
 	struct ctl_conn		*c;
 

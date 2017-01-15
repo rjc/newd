@@ -99,7 +99,7 @@ struct group {
 	struct in6_addr	newd_group_v6address;
 };
 
-struct vmd {
+struct newd {
 	struct privsep		 newd_ps;
 	const char		*newd_conffile;
 
@@ -113,7 +113,7 @@ struct vmd {
 	LIST_HEAD(, group)	 newd_group_list;
 };
 
-/* vmd.c */
+/* newd.c */
 void	 newd_reload(unsigned int, const char *);
 char	*get_string(uint8_t *, size_t);
 
@@ -122,10 +122,10 @@ void	 engine(struct privsep *, struct privsep_proc *);
 void	 engine_shutdown(void);
 
 /* control.c */
-int	 config_init(struct vmd *);
-void	 config_purge(struct vmd *, unsigned int);
-int	 config_setreset(struct vmd *, unsigned int);
-int	 config_getreset(struct vmd *, struct imsg *);
+int	 config_init(struct newd *);
+void	 config_purge(struct newd *, unsigned int);
+int	 config_setreset(struct newd *, unsigned int);
+int	 config_getreset(struct newd *, struct imsg *);
 int	 config_setvm(struct privsep *, struct vmd_vm *, uint32_t);
 int	 config_getvm(struct privsep *, struct imsg *);
 int	 config_getdisk(struct privsep *, struct imsg *);

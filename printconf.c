@@ -33,10 +33,10 @@
 #include "proc.h"
 #include "newd.h"
 
-void print_config(struct vmd *);
+void print_config(struct newd *);
 
 void
-print_config(struct vmd *conf)
+print_config(struct newd *conf)
 {
 	struct group *g;
 	char buf[INET6_ADDRSTRLEN], *bufp;

@@ -82,9 +82,9 @@ struct sym {
 int	 symset(const char *, const char *, int);
 char	*symget(const char *);
 
-void	 clear_config(struct vmd *xconf);
+void	 clear_config(struct newd *xconf);
 
-extern struct vmd	*env;
+extern struct newd	*env;
 static int		 errors;
 
 static struct group	*group;
@@ -748,7 +748,7 @@ conf_get_group(char *name)
 }
 
 void
-clear_config(struct vmd *xconf)
+clear_config(struct newd *xconf)
 {
 	struct group	*g;
 
