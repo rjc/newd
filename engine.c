@@ -413,30 +413,3 @@ get_info_vm(struct privsep *ps, struct imsg *imsg, int terminate)
 	}
 	return (0);
 }
-
-/*
- * fd_hasdata
- *
- * Determines if data can be read from a file descriptor.
- *
- * Parameters:
- *  fd: the fd to check
- *
- * Return values:
- *  1 if data can be read from an fd, or 0 otherwise.
- */
-int
-fd_hasdata(int fd)
-{
-	struct pollfd pfd[1];
-	int nready, hasdata = 0;
-
-	pfd[0].fd = fd;
-	pfd[0].events = POLLIN;
-	nready = poll(pfd, 1, 0);
-	if (nready == -1)
-		log_warn("checking file descriptor for data failed");
-	else if (nready == 1 && pfd[0].revents & POLLIN)
-		hasdata = 1;
-	return (hasdata);
-}

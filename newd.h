@@ -120,7 +120,6 @@ char	*get_string(uint8_t *, size_t);
 /* engine.c */
 void	 engine(struct privsep *, struct privsep_proc *);
 void	 engine_shutdown(void);
-int	 fd_hasdata(int);
 
 /* control.c */
 int	 config_init(struct vmd *);
