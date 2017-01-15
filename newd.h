@@ -60,14 +60,6 @@ struct vmop_result {
 	char			 vmr_ttyname[16];
 };
 
-struct vmop_info_result {
-	char			 vir_ttyname[16];
-};
-
-struct vmop_id {
-	uint32_t		 vid_id;
-};
-
 struct vmd_vm {
 	pid_t			 vm_pid;
 	/* Userspace ID of VM. The user never sees this */

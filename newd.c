@@ -71,7 +71,6 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 	struct privsep			*ps = p->p_ps;
 	int				 res = 0, ret = 0, cmd = 0, verbose;
 	unsigned int			 v = 0;
-	struct vmop_id			 vid;
 	struct vmop_result		 vmr;
 	struct vmd_vm			*vm = NULL;
 	char				*str = NULL;
@@ -99,17 +98,6 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 		}
 		break;
 	case IMSG_VMDOP_TERMINATE_VM_REQUEST:
-		IMSG_SIZE_CHECK(imsg, &vid);
-		memcpy(&vid, imsg->data, sizeof(vid));
-		if ((id = vid.vid_id) == 0) {
-			/* Lookup vm (id) by name */
-			if (vm == NULL) {
-				res = ENOENT;
-				cmd = IMSG_VMDOP_TERMINATE_VM_RESPONSE;
-				break;
-			}
-			id = 1;
-		}
 		if (proc_compose_imsg(ps, PROC_ENGINE, -1, imsg->hdr.type,
 		    imsg->hdr.peerid, -1, &vm, sizeof(vm)) == -1)
 			return (-1);
@@ -170,7 +158,6 @@ newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 	struct privsep		*ps = p->p_ps;
 	int			 res = 0;
 	struct vmd_vm		*vm;
-	struct vmop_info_result	 vir;
 
 	switch (imsg->hdr.type) {
 	case IMSG_VMDOP_START_VM_RESPONSE:
@@ -228,12 +215,6 @@ newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 		}
 		break;
 	case IMSG_VMDOP_GET_INFO_VM_DATA:
-		IMSG_SIZE_CHECK(imsg, &vir);
-		memcpy(&vir, imsg->data, sizeof(vir));
-		if (proc_compose_imsg(ps, PROC_CONTROL, -1, imsg->hdr.type,
-		    imsg->hdr.peerid, -1, &vir, sizeof(vir)) == -1) {
-			return (-1);
-		}
 		break;
 	case IMSG_VMDOP_GET_INFO_VM_END_DATA:
 		/*
