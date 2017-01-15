@@ -47,7 +47,6 @@
 
 void vmm_sighdlr(int, short, void *);
 int opentap(char *);
-int start_vm(struct imsg *, uint32_t *);
 int get_info_vm(struct privsep *, struct imsg *, int);
 int vmm_dispatch_parent(int, struct privsep_proc *, struct imsg *);
 void vmm_run(struct privsep *, struct privsep_proc *, void *);
@@ -131,7 +130,6 @@ vmm_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 		}
 		break;
 	case IMSG_VMDOP_START_VM_END:
-		res = start_vm(imsg, &id);
 		cmd = IMSG_VMDOP_START_VM_RESPONSE;
 		break;
 	case IMSG_VMDOP_TERMINATE_VM_REQUEST:

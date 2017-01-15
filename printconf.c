@@ -21,13 +21,16 @@
 #include <sys/socket.h>
 #include <sys/uio.h>
 
+#include <net/if.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
 #include <event.h>
 #include <imsg.h>
+#include <limits.h>
 #include <stdio.h>
 
+#include "proc.h"
 #include "newd.h"
 
 void print_config(struct vmd *);
