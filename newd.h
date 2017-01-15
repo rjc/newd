@@ -68,16 +68,7 @@ struct vmop_id {
 	uint32_t		 vid_id;
 };
 
-struct vmop_create_params {
-	unsigned int		 vmc_flags;
-#define VMOP_CREATE_KERNEL	0x01
-#define VMOP_CREATE_MEMORY	0x02
-#define VMOP_CREATE_NETWORK	0x04
-#define VMOP_CREATE_DISK	0x08
-};
-
 struct vmd_vm {
-	struct vmop_create_params vm_params;
 	pid_t			 vm_pid;
 	/* Userspace ID of VM. The user never sees this */
 	uint32_t		 vm_vmid;

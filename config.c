@@ -100,8 +100,6 @@ config_getreset(struct vmd *env, struct imsg *imsg)
 int
 config_setvm(struct privsep *ps, struct vmd_vm *vm, uint32_t peerid)
 {
-	struct vmop_create_params *vmc = &vm->vm_params;
-	unsigned int		 i;
 	int			 fd = -1, ttys_fd;
 	int			 kernfd = -1, *diskfds = NULL, *tapfds = NULL;
 	int			 saved_errno = 0;
@@ -147,21 +145,6 @@ config_setvm(struct privsep *ps, struct vmd_vm *vm, uint32_t peerid)
 		goto fail;
 	}
 
-	/* Send VM information */
-	proc_compose_imsg(ps, PROC_ENGINE, -1,
-	    IMSG_VMDOP_START_VM_REQUEST, vm->vm_vmid, kernfd,
-	    vmc, sizeof(*vmc));
-	for (i = 0; i < 1; i++) {
-		proc_compose_imsg(ps, PROC_ENGINE, -1,
-		    IMSG_VMDOP_START_VM_DISK, vm->vm_vmid, diskfds[i],
-		    &i, sizeof(i));
-	}
-	for (i = 0; i < 1; i++) {
-		proc_compose_imsg(ps, PROC_ENGINE, -1,
-		    IMSG_VMDOP_START_VM_IF, vm->vm_vmid, tapfds[i],
-		    &i, sizeof(i));
-	}
-
 	proc_compose_imsg(ps, PROC_ENGINE, -1,
 	    IMSG_VMDOP_START_VM_END, vm->vm_vmid, fd,  NULL, 0);
 
@@ -187,11 +170,10 @@ config_setvm(struct privsep *ps, struct vmd_vm *vm, uint32_t peerid)
 int
 config_getvm(struct privsep *ps, struct imsg *imsg)
 {
-	struct vmop_create_params	 vmc;
 	struct vmd_vm			*vm;
 
-	IMSG_SIZE_CHECK(imsg, &vmc);
-	memcpy(&vmc, imsg->data, sizeof(vmc));
+	IMSG_SIZE_CHECK(imsg, &vm);
+	memcpy(&vm, imsg->data, sizeof(vm));
 
 	errno = 0;
 	if (-1)

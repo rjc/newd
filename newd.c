@@ -71,7 +71,6 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 	struct privsep			*ps = p->p_ps;
 	int				 res = 0, ret = 0, cmd = 0, verbose;
 	unsigned int			 v = 0;
-	struct vmop_create_params	 vmc;
 	struct vmop_id			 vid;
 	struct vmop_result		 vmr;
 	struct vmd_vm			*vm = NULL;
@@ -80,10 +79,10 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 
 	switch (imsg->hdr.type) {
 	case IMSG_VMDOP_START_VM_REQUEST:
-		IMSG_SIZE_CHECK(imsg, &vmc);
-		memcpy(&vmc, imsg->data, sizeof(vmc));
+		IMSG_SIZE_CHECK(imsg, &ps);
+		memcpy(ps, imsg->data, sizeof(*ps));
 		ret = 0;
-		if (vmc.vmc_flags == 0) {
+		if (0) {
 			/* start an existing VM with pre-configured options */
 			if (!(ret == -1 && errno == EALREADY)) {
 				res = errno;
