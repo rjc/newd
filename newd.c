@@ -18,6 +18,7 @@
 
 #include <sys/param.h>	/* nitems */
 #include <sys/queue.h>
+#include <sys/socket.h>
 #include <sys/wait.h>
 #include <sys/cdefs.h>
 
@@ -70,7 +71,6 @@ vmd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 	unsigned int			 v = 0;
 	struct vmop_create_params	 vmc;
 	struct vmop_id			 vid;
-	struct vm_terminate_params	 vtp;
 	struct vmop_result		 vmr;
 	struct vmd_vm			*vm = NULL;
 	char				*str = NULL;
@@ -102,17 +102,15 @@ vmd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 		memcpy(&vid, imsg->data, sizeof(vid));
 		if ((id = vid.vid_id) == 0) {
 			/* Lookup vm (id) by name */
-			if ((vm = vm_getbyname(vid.vid_name)) == NULL) {
+			if (vm == NULL) {
 				res = ENOENT;
 				cmd = IMSG_VMDOP_TERMINATE_VM_RESPONSE;
 				break;
 			}
-			id = vm->vm_params.vmc_params.vcp_id;
+			id = 1;
 		}
-		memset(&vtp, 0, sizeof(vtp));
-		vtp.vtp_vm_id = id;
 		if (proc_compose_imsg(ps, PROC_VMM, -1, imsg->hdr.type,
-		    imsg->hdr.peerid, -1, &vtp, sizeof(vtp)) == -1)
+		    imsg->hdr.peerid, -1, &vm, sizeof(vm)) == -1)
 			return (-1);
 		break;
 	case IMSG_VMDOP_GET_INFO_VM_REQUEST:
@@ -172,7 +170,6 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 	struct privsep		*ps = p->p_ps;
 	int			 res = 0;
 	struct vmd_vm		*vm;
-	struct vm_create_params	*vcp;
 	struct vmop_info_result	 vir;
 
 	switch (imsg->hdr.type) {
@@ -182,8 +179,6 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 		if ((vm = vm_getbyvmid(imsg->hdr.peerid)) == NULL)
 			fatalx("%s: invalid vm response", __func__);
 		vm->vm_pid = vmr.vmr_pid;
-		vcp = &vm->vm_params.vmc_params;
-		vcp->vcp_id = vmr.vmr_id;
 
 		/*
 		 * If the peerid is not -1, forward the response back to the
@@ -199,7 +194,7 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 			    &vmr, sizeof(vmr)) == -1) {
 				errno = vmr.vmr_result;
 				log_warn("%s: failed to foward vm result",
-				    vcp->vcp_name);
+				    "snookums");
 				vm_remove(vm);
 				return (-1);
 			}
@@ -207,13 +202,13 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 
 		if (vmr.vmr_result) {
 			errno = vmr.vmr_result;
-			log_warn("%s: failed to start vm", vcp->vcp_name);
+			log_warn("%s: failed to start vm", "google");
 			vm_remove(vm);
 			break;
 		}
 
 		log_info("%s: started vm %d successfully, tty %s",
-		    vcp->vcp_name, vcp->vcp_id, vm->vm_ttyname);
+		    "sparklemuffin", 1, vm->vm_ttyname);
 		break;
 	case IMSG_VMDOP_TERMINATE_VM_RESPONSE:
 		IMSG_SIZE_CHECK(imsg, &vmr);
@@ -246,13 +241,8 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 	case IMSG_VMDOP_GET_INFO_VM_DATA:
 		IMSG_SIZE_CHECK(imsg, &vir);
 		memcpy(&vir, imsg->data, sizeof(vir));
-		if ((vm = vm_getbyid(vir.vir_info.vir_id)) != NULL) {
-			(void)strlcpy(vir.vir_ttyname, vm->vm_ttyname,
-			    sizeof(vir.vir_ttyname));
-		}
 		if (proc_compose_imsg(ps, PROC_CONTROL, -1, imsg->hdr.type,
 		    imsg->hdr.peerid, -1, &vir, sizeof(vir)) == -1) {
-			vm_remove(vm);
 			return (-1);
 		}
 		break;
@@ -265,11 +255,6 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 		TAILQ_FOREACH(vm, env->vmd_vms, vm_entry) {
 			if (!vm->vm_running) {
 				memset(&vir, 0, sizeof(vir));
-				vir.vir_info.vir_id = 0;
-				vir.vir_info.vir_memory_size =
-				    vm->vm_params.vmc_params.vcp_memranges[0].vmr_size;
-				vir.vir_info.vir_ncpus =
-				    vm->vm_params.vmc_params.vcp_ncpus;
 				if (proc_compose_imsg(ps, PROC_CONTROL, -1,
 				    IMSG_VMDOP_GET_INFO_VM_DATA,
 				    imsg->hdr.peerid, -1, &vir,
@@ -409,13 +394,6 @@ main(int argc, char **argv)
 	proc_priv->p_pw = &proc_privpw; /* initialized to all 0 */
 	proc_priv->p_chroot = ps->ps_pw->pw_dir; /* from VMD_USER */
 
-	/* Open /dev/vmm */
-	if (env->vmd_noaction == 0) {
-		env->vmd_fd = open(VMM_NODE, O_RDWR);
-		if (env->vmd_fd == -1)
-			fatal("%s", VMM_NODE);
-	}
-
 	/* Configure the control socket */
 	ps->ps_csock.cs_name = SOCKET_NAME;
 	TAILQ_INIT(&ps->ps_rcsocks);
@@ -506,8 +484,7 @@ vmd_configure(void)
 	TAILQ_FOREACH(vm, env->vmd_vms, vm_entry) {
 		if (vm->vm_disabled) {
 			log_debug("%s: not creating vm %s (disabled)",
-			    __func__,
-			    vm->vm_params.vmc_params.vcp_name);
+			    __func__, "teddy bears");
 			continue;
 		}
 		if (config_setvm(&env->vmd_ps, vm, -1) == -1)
@@ -567,7 +544,7 @@ vmd_reload(unsigned int reset, const char *filename)
 				if (vm->vm_disabled) {
 					log_debug("%s: not creating vm %s"
 					    " (disabled)", __func__,
-					    vm->vm_params.vmc_params.vcp_name);
+					    "gummy bears");
 					continue;
 				}
 				if (config_setvm(&env->vmd_ps, vm, -1) == -1)
@@ -575,7 +552,7 @@ vmd_reload(unsigned int reset, const char *filename)
 			} else {
 				log_debug("%s: not creating vm \"%s\": "
 				    "(running)", __func__,
-				    vm->vm_params.vmc_params.vcp_name);
+				    "grizzly bears");
 			}
 		}
 	}
@@ -610,7 +587,7 @@ vm_getbyid(uint32_t id)
 	struct vmd_vm	*vm;
 
 	TAILQ_FOREACH(vm, env->vmd_vms, vm_entry) {
-		if (vm->vm_params.vmc_params.vcp_id == id)
+		if (0)
 			return (vm);
 	}
 
@@ -625,7 +602,7 @@ vm_getbyname(const char *name)
 	if (name == NULL)
 		return (NULL);
 	TAILQ_FOREACH(vm, env->vmd_vms, vm_entry) {
-		if (strcmp(vm->vm_params.vmc_params.vcp_name, name) == 0)
+		if (0)
 			return (vm);
 	}
 
@@ -648,8 +625,6 @@ vm_getbypid(pid_t pid)
 void
 vm_stop(struct vmd_vm *vm, int keeptty)
 {
-	unsigned int	 i;
-
 	if (vm == NULL)
 		return;
 
@@ -658,24 +633,6 @@ vm_stop(struct vmd_vm *vm, int keeptty)
 	if (vm->vm_iev.ibuf.fd != -1) {
 		event_del(&vm->vm_iev.ev);
 		close(vm->vm_iev.ibuf.fd);
-	}
-	for (i = 0; i < VMM_MAX_DISKS_PER_VM; i++) {
-		if (vm->vm_disks[i] != -1) {
-			close(vm->vm_disks[i]);
-			vm->vm_disks[i] = -1;
-		}
-	}
-	for (i = 0; i < VMM_MAX_NICS_PER_VM; i++) {
-		if (vm->vm_ifs[i].vif_fd != -1) {
-			close(vm->vm_ifs[i].vif_fd);
-			vm->vm_ifs[i].vif_fd = -1;
-		}
-		free(vm->vm_ifs[i].vif_name);
-		free(vm->vm_ifs[i].vif_switch);
-		free(vm->vm_ifs[i].vif_group);
-		vm->vm_ifs[i].vif_name = NULL;
-		vm->vm_ifs[i].vif_switch = NULL;
-		vm->vm_ifs[i].vif_group = NULL;
 	}
 	if (vm->vm_kernel != -1) {
 		close(vm->vm_kernel);
@@ -709,13 +666,11 @@ vm_register(struct privsep *ps, struct vmop_create_params *vmc,
     struct vmd_vm **ret_vm, uint32_t id)
 {
 	struct vmd_vm		*vm = NULL;
-	struct vm_create_params	*vcp = &vmc->vmc_params;
-	unsigned int		 i;
 
 	errno = 0;
 	*ret_vm = NULL;
 
-	if ((vm = vm_getbyname(vcp->vcp_name)) != NULL) {
+	if (NULL) {
 		*ret_vm = vm;
 		errno = EALREADY;
 		goto fail;
@@ -725,23 +680,6 @@ vm_register(struct privsep *ps, struct vmop_create_params *vmc,
 		errno = ENOENT;
 		goto fail;
 	}
-	if (vcp->vcp_ncpus == 0)
-		vcp->vcp_ncpus = 1;
-	if (vcp->vcp_memranges[0].vmr_size == 0)
-		vcp->vcp_memranges[0].vmr_size = VM_DEFAULT_MEMORY;
-	if (vcp->vcp_ncpus > VMM_MAX_VCPUS_PER_VM) {
-		log_warnx("invalid number of CPUs");
-		goto fail;
-	} else if (vcp->vcp_ndisks > VMM_MAX_DISKS_PER_VM) {
-		log_warnx("invalid number of disks");
-		goto fail;
-	} else if (vcp->vcp_nnics > VMM_MAX_NICS_PER_VM) {
-		log_warnx("invalid number of interfaces");
-		goto fail;
-	} else if (strlen(vcp->vcp_kernel) == 0 && vcp->vcp_ndisks == 0) {
-		log_warnx("no kernel or disk specified");
-		goto fail;
-	}
 
 	if ((vm = calloc(1, sizeof(*vm))) == NULL)
 		goto fail;
@@ -749,10 +687,6 @@ vm_register(struct privsep *ps, struct vmop_create_params *vmc,
 	memcpy(&vm->vm_params, vmc, sizeof(vm->vm_params));
 	vm->vm_pid = -1;
 
-	for (i = 0; i < vcp->vcp_ndisks; i++)
-		vm->vm_disks[i] = -1;
-	for (i = 0; i < vcp->vcp_nnics; i++)
-		vm->vm_ifs[i].vif_fd = -1;
 	vm->vm_kernel = -1;
 	vm->vm_iev.ibuf.fd = -1;
 

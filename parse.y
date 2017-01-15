@@ -27,6 +27,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 
+#include <net/if.h>
 #include <netinet/in.h>
 
 #include <arpa/inet.h>
@@ -44,6 +45,7 @@
 #include <syslog.h>
 #include <unistd.h>
 
+#include "proc.h"
 #include "newd.h"
 
 TAILQ_HEAD(files, file)		 files = TAILQ_HEAD_INITIALIZER(files);
