@@ -123,15 +123,12 @@ config_getreset(struct vmd *env, struct imsg *imsg)
 int
 config_setvm(struct privsep *ps, struct vmd_vm *vm, uint32_t peerid)
 {
-	struct vmd_if		*vif;
 	struct vmop_create_params *vmc = &vm->vm_params;
 	unsigned int		 i;
 	int			 fd = -1, ttys_fd;
 	int			 kernfd = -1, *diskfds = NULL, *tapfds = NULL;
 	int			 saved_errno = 0;
 	char			 ptyname[VM_TTYNAME_MAX];
-	char			 ifname[IF_NAMESIZE], *s;
-	char			 path[PATH_MAX];
 
 	errno = 0;
 

@@ -17,7 +17,3 @@
  */
 
 #define MAX_PORTS 65536
-
-typedef uint8_t (*io_fn_t)(struct vm_run_params *);
-
-void vcpu_assert_pic_irq(uint32_t, uint32_t, int);
