@@ -130,8 +130,7 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 		memcpy(&mode, imsg->data, sizeof(mode));
 		id = 1;
 
-		if ((vm = NULL) != NULL &&
-		    vm->vm_shutdown == 0) {
+		if ((vm = NULL) != NULL) {
 			log_debug("%s: sending shutdown request to vm %d",
 			    __func__, id);
 
@@ -142,7 +141,6 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 			 * the ACPI-less powerdown ("press any key to reboot")
 			 * of the VM.
 			 */
-			vm->vm_shutdown = 1;
 			if (imsg_compose_event(&vm->vm_iev,
 			    IMSG_VMDOP_VM_REBOOT, 0, 0, -1, NULL, 0) == -1)
 				res = errno;
@@ -231,7 +229,7 @@ vmm_sighdlr(int sig, short event, void *arg)
 					ret = WEXITSTATUS(status);
 
 				/* don't reboot on pending shutdown */
-				if (ret == EAGAIN && vm->vm_shutdown)
+				if (ret == EAGAIN)
 					ret = 0;
 
 				vmid = 1;

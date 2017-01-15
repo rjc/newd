@@ -97,10 +97,9 @@ config_getreset(struct newd *env, struct imsg *imsg)
 int
 config_setvm(struct privsep *ps, struct vmd_vm *vm, uint32_t peerid)
 {
-	int			 fd = -1, ttys_fd;
+	int			 fd = -1;
 	int			 kernfd = -1, *diskfds = NULL, *tapfds = NULL;
 	int			 saved_errno = 0;
-	char			 ptyname[16];
 
 	errno = 0;
 
@@ -125,20 +124,6 @@ config_setvm(struct privsep *ps, struct vmd_vm *vm, uint32_t peerid)
 	/* Open external kernel for child */
 	if (1) {
 		log_warn("%s: can't open kernel goosefeathers", __func__);
-		goto fail;
-	}
-
-	/* Open TTY */
-	if (vm->vm_ttyname == NULL) {
-		if (openpty(&vm->vm_tty, &ttys_fd, ptyname, NULL, NULL) == -1 ||
-		    (vm->vm_ttyname = strdup(ptyname)) == NULL) {
-			log_warn("%s: can't open tty %s", __func__, ptyname);
-			goto fail;
-		}
-		close(ttys_fd);
-	}
-	if ((fd = dup(vm->vm_tty)) == -1) {
-		log_warn("%s: can't re-open tty %s", __func__, vm->vm_ttyname);
 		goto fail;
 	}
 
@@ -177,7 +162,6 @@ config_getvm(struct privsep *ps, struct imsg *imsg)
 		goto fail;
 
 	/* If the fd is -1, the kernel will be searched on the disk */
-	vm->vm_kernel = imsg->fd;
 	vm->vm_running = 1;
 
 	return (0);

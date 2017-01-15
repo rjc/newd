@@ -72,21 +72,11 @@ struct vmd_vm {
 	pid_t			 vm_pid;
 	/* Userspace ID of VM. The user never sees this */
 	uint32_t		 vm_vmid;
-	int			 vm_kernel;
-	char			*vm_ttyname;
-	int			 vm_tty;
 	uint32_t		 vm_peerid;
 	/* When set, VM is running now (PROC_PARENT only) */
 	int			 vm_running;
-	/* When set, VM is not started by default (PROC_PARENT only) */
-	int			 vm_disabled;
-	/* When set, VM was defined in a config file */
-	int			 vm_from_config;
-	struct imsgev		 vm_iev;
-	int			 vm_shutdown;
-	TAILQ_ENTRY(vmd_vm)	 vm_entry;
+	struct imsgev            vm_iev;
 };
-TAILQ_HEAD(vmlist, vmd_vm);
 
 struct group {
 	LIST_ENTRY(group)	 entry;

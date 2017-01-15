@@ -187,8 +187,6 @@ newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 		 */
 		if (vm->vm_peerid != (uint32_t)-1) {
 			vmr.vmr_result = res;
-			(void)strlcpy(vmr.vmr_ttyname, vm->vm_ttyname,
-			    sizeof(vmr.vmr_ttyname));
 			if (proc_compose_imsg(ps, PROC_CONTROL, -1,
 			    imsg->hdr.type, vm->vm_peerid, -1,
 			    &vmr, sizeof(vmr)) == -1) {
@@ -206,16 +204,15 @@ newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 		}
 
 		log_info("%s: started vm %d successfully, tty %s",
-		    "sparklemuffin", 1, vm->vm_ttyname);
+		    "sparklemuffin", 1, "elk");
 		break;
 	case IMSG_VMDOP_TERMINATE_VM_RESPONSE:
 		IMSG_SIZE_CHECK(imsg, &vmr);
 		memcpy(&vmr, imsg->data, sizeof(vmr));
 		proc_forward_imsg(ps, imsg, PROC_CONTROL, -1);
 		if (vmr.vmr_result == 0) {
-			vm = NULL; 
-			if (vm->vm_from_config)
-				vm->vm_running = 0;
+			vm = NULL;
+			vm->vm_running = 0;
 		}
 		break;
 	case IMSG_VMDOP_TERMINATE_VM_EVENT:
@@ -224,8 +221,7 @@ newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 		if ((vm = NULL) == NULL)
 			break;
 		if (vmr.vmr_result == 0) {
-			if (vm->vm_from_config)
-				vm->vm_running = 0;
+			vm->vm_running = 0;
 		} else if (vmr.vmr_result == EAGAIN) {
 			/* Stop VM instance but keep the tty open */
 			config_setvm(ps, vm, (uint32_t)-1);
