@@ -320,7 +320,7 @@ main(int argc, char **argv)
 {
 	struct privsep		*ps;
 	int			 ch;
-	const char		*conffile = VMD_CONF;
+	const char		*conffile = NEWD_CONF;
 	enum privsep_procid	 proc_id = PROC_PARENT;
 	int			 proc_instance = 0;
 	const char		*errp, *title = NULL;
@@ -388,15 +388,15 @@ main(int argc, char **argv)
 	if (config_init(env) == -1)
 		fatal("failed to initialize configuration");
 
-	if ((ps->ps_pw = getpwnam(VMD_USER)) == NULL)
-		fatal("unknown user %s", VMD_USER);
+	if ((ps->ps_pw = getpwnam(NEWD_USER)) == NULL)
+		fatal("unknown user %s", NEWD_USER);
 
 	/* First proc runs as root without pledge but in default chroot */
 	proc_priv->p_pw = &proc_privpw; /* initialized to all 0 */
-	proc_priv->p_chroot = ps->ps_pw->pw_dir; /* from VMD_USER */
+	proc_priv->p_chroot = ps->ps_pw->pw_dir; /* from NEWD_USER */
 
 	/* Configure the control socket */
-	ps->ps_csock.cs_name = SOCKET_NAME;
+	ps->ps_csock.cs_name = NEWD_SOCKET;
 	TAILQ_INIT(&ps->ps_rcsocks);
 
 	/* Configuration will be parsed after forking the children */

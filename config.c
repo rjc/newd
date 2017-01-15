@@ -129,7 +129,7 @@ config_setvm(struct privsep *ps, struct vmd_vm *vm, uint32_t peerid)
 	int			 fd = -1, ttys_fd;
 	int			 kernfd = -1, *diskfds = NULL, *tapfds = NULL;
 	int			 saved_errno = 0;
-	char			 ptyname[VM_TTYNAME_MAX];
+	char			 ptyname[16];
 
 	errno = 0;
 

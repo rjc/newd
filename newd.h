@@ -16,33 +16,15 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define VMD_USER		"_vmd"
-#define VMD_CONF		"/etc/vm.conf"
-#define SOCKET_NAME		"/var/run/vmd.sock"
-#define VMM_NODE		"/dev/vmm"
-#define VM_DEFAULT_KERNEL	"/bsd"
-#define VM_DEFAULT_DEVICE	"hd0a"
-#define VM_BOOT_CONF		"/etc/boot.conf"
-#define VM_NAME_MAX		64
-#define VM_TTYNAME_MAX		16
-#define MAX_TAP			256
-#define NR_BACKLOG		5
-#define VMD_SWITCH_TYPE		"bridge"
-#define VM_DEFAULT_MEMORY	512
-
-#ifdef VMD_DEBUG
+#ifdef NEWD_DEBUG
 #define dprintf(x...)   do { log_debug(x); } while(0)
 #else
 #define dprintf(x...)
-#endif /* VMD_DEBUG */
+#endif /* NEWD_DEBUG */
 
-#define CONF_FILE		"/etc/newd.conf"
+#define NEWD_CONF		"/etc/newd.conf"
 #define	NEWD_SOCKET		"/var/run/newd.sock"
 #define NEWD_USER		"_newd"
-
-#define OPT_VERBOSE	0x00000001
-#define OPT_VERBOSE2	0x00000002
-#define OPT_NOACTION	0x00000004
 
 #define NEWD_MAXTEXT		256
 #define NEWD_MAXGROUPNAME	16
@@ -75,11 +57,11 @@ struct vmop_result {
 	int			 vmr_result;
 	uint32_t		 vmr_id;
 	pid_t			 vmr_pid;
-	char			 vmr_ttyname[VM_TTYNAME_MAX];
+	char			 vmr_ttyname[16];
 };
 
 struct vmop_info_result {
-	char			 vir_ttyname[VM_TTYNAME_MAX];
+	char			 vir_ttyname[16];
 };
 
 struct vmop_id {
@@ -89,7 +71,7 @@ struct vmop_id {
 struct vmop_ifreq {
 	uint32_t		 vfr_id;
 	char			 vfr_name[IF_NAMESIZE];
-	char			 vfr_value[VM_NAME_MAX];
+	char			 vfr_value[16];
 };
 
 struct vmop_create_params {
