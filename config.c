@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <string.h>
+#include <event.h>
 #include <fcntl.h>
 #include <util.h>
 #include <errno.h>

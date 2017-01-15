@@ -16,16 +16,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/socket.h>
-#include <sys/queue.h>
-#include <sys/uio.h>
-
-#include <imsg.h>
-#include <event.h>
-
-#ifndef _PROC_H
-#define _PROC_H
-
 enum {
 	IMSG_NONE,
 	IMSG_CTL_OK,
@@ -216,5 +206,3 @@ __dead void fatal(const char *, ...)
 	    __attribute__((__format__ (printf, 1, 2)));
 __dead void fatalx(const char *, ...)
 	    __attribute__((__format__ (printf, 1, 2)));
-
-#endif /* _PROC_H */
