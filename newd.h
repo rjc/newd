@@ -123,12 +123,12 @@ struct vmd {
 };
 
 /* vmd.c */
-void	 vmd_reload(unsigned int, const char *);
+void	 newd_reload(unsigned int, const char *);
 char	*get_string(uint8_t *, size_t);
 
-/* vmm.c */
-void	 vmm(struct privsep *, struct privsep_proc *);
-void	 vmm_shutdown(void);
+/* engine.c */
+void	 engine(struct privsep *, struct privsep_proc *);
+void	 engine_shutdown(void);
 int	 fd_hasdata(int);
 
 /* control.c */

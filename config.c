@@ -51,8 +51,7 @@ config_init(struct vmd *env)
 
 	/* Global configuration */
 	ps->ps_what[PROC_PARENT] = CONFIG_ALL;
-	ps->ps_what[PROC_VMM] = CONFIG_VMS;
-	ps->ps_what[PROC_PRIV] = 0;
+	ps->ps_what[PROC_ENGINE] = CONFIG_VMS;
 
 	/* Other configuration */
 	what = ps->ps_what[privsep_process];
@@ -149,21 +148,21 @@ config_setvm(struct privsep *ps, struct vmd_vm *vm, uint32_t peerid)
 	}
 
 	/* Send VM information */
-	proc_compose_imsg(ps, PROC_VMM, -1,
+	proc_compose_imsg(ps, PROC_ENGINE, -1,
 	    IMSG_VMDOP_START_VM_REQUEST, vm->vm_vmid, kernfd,
 	    vmc, sizeof(*vmc));
 	for (i = 0; i < 1; i++) {
-		proc_compose_imsg(ps, PROC_VMM, -1,
+		proc_compose_imsg(ps, PROC_ENGINE, -1,
 		    IMSG_VMDOP_START_VM_DISK, vm->vm_vmid, diskfds[i],
 		    &i, sizeof(i));
 	}
 	for (i = 0; i < 1; i++) {
-		proc_compose_imsg(ps, PROC_VMM, -1,
+		proc_compose_imsg(ps, PROC_ENGINE, -1,
 		    IMSG_VMDOP_START_VM_IF, vm->vm_vmid, tapfds[i],
 		    &i, sizeof(i));
 	}
 
-	proc_compose_imsg(ps, PROC_VMM, -1,
+	proc_compose_imsg(ps, PROC_ENGINE, -1,
 	    IMSG_VMDOP_START_VM_END, vm->vm_vmid, fd,  NULL, 0);
 
 	free(diskfds);

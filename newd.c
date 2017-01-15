@@ -46,18 +46,19 @@
 __dead void usage(void);
 
 int	 main(int, char **);
-int	 vmd_configure(void);
-void	 vmd_sighdlr(int sig, short event, void *arg);
-void	 vmd_shutdown(void);
-int	 vmd_control_run(void);
-int	 vmd_dispatch_control(int, struct privsep_proc *, struct imsg *);
-int	 vmd_dispatch_vmm(int, struct privsep_proc *, struct imsg *);
+int	 newd_configure(void);
+void	 newd_sighdlr(int sig, short event, void *arg);
+void	 newd_shutdown(void);
+int	 newd_control_run(void);
+int	 newd_dispatch_control(int, struct privsep_proc *, struct imsg *);
+int	 newd_dispatch_engine(int, struct privsep_proc *, struct imsg *);
 
 struct vmd	*env;
 
 static struct privsep_proc procs[] = {
-	{ "control",	PROC_CONTROL,	vmd_dispatch_control, control },
-	{ "vmm",	PROC_VMM,	vmd_dispatch_vmm, vmm, vmm_shutdown },
+	{ "control",	PROC_CONTROL,	newd_dispatch_control, control },
+	{ "engine",	PROC_ENGINE,	newd_dispatch_engine, engine,
+		engine_shutdown },
 };
 
 /* For the privileged process */
@@ -65,7 +66,7 @@ static struct privsep_proc *proc_priv = &procs[0];
 static struct passwd proc_privpw;
 
 int
-vmd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
+newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 {
 	struct privsep			*ps = p->p_ps;
 	int				 res = 0, ret = 0, cmd = 0, verbose;
@@ -110,33 +111,32 @@ vmd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 			}
 			id = 1;
 		}
-		if (proc_compose_imsg(ps, PROC_VMM, -1, imsg->hdr.type,
+		if (proc_compose_imsg(ps, PROC_ENGINE, -1, imsg->hdr.type,
 		    imsg->hdr.peerid, -1, &vm, sizeof(vm)) == -1)
 			return (-1);
 		break;
 	case IMSG_VMDOP_GET_INFO_VM_REQUEST:
-		proc_forward_imsg(ps, imsg, PROC_VMM, -1);
+		proc_forward_imsg(ps, imsg, PROC_ENGINE, -1);
 		break;
 	case IMSG_VMDOP_LOAD:
 		IMSG_SIZE_CHECK(imsg, str); /* at least one byte for path */
 		str = get_string((uint8_t *)imsg->data,
 		    IMSG_DATA_SIZE(imsg));
 	case IMSG_VMDOP_RELOAD:
-		vmd_reload(0, str);
+		newd_reload(0, str);
 		free(str);
 		break;
 	case IMSG_CTL_RESET:
 		IMSG_SIZE_CHECK(imsg, &v);
 		memcpy(&v, imsg->data, sizeof(v));
-		vmd_reload(v, str);
+		newd_reload(v, str);
 		break;
 	case IMSG_CTL_VERBOSE:
 		IMSG_SIZE_CHECK(imsg, &verbose);
 		memcpy(&verbose, imsg->data, sizeof(verbose));
 		log_setverbose(verbose);
 
-		proc_forward_imsg(ps, imsg, PROC_VMM, -1);
-		proc_forward_imsg(ps, imsg, PROC_PRIV, -1);
+		proc_forward_imsg(ps, imsg, PROC_ENGINE, -1);
 		break;
 	default:
 		return (-1);
@@ -165,7 +165,7 @@ vmd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 }
 
 int
-vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
+newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 {
 	struct vmop_result	 vmr;
 	struct privsep		*ps = p->p_ps;
@@ -242,7 +242,7 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 		break;
 	case IMSG_VMDOP_GET_INFO_VM_END_DATA:
 		/*
-		 * PROC_VMM has responded with the *running* VMs, now we
+		 * PROC_ENGINE has responded with the *running* VMs, now we
 		 * append the others. These use the special value 0 for their
 		 * kernel id to indicate that they are not running.
 		 */
@@ -257,7 +257,7 @@ vmd_dispatch_vmm(int fd, struct privsep_proc *p, struct imsg *imsg)
 }
 
 void
-vmd_sighdlr(int sig, short event, void *arg)
+newd_sighdlr(int sig, short event, void *arg)
 {
 	if (privsep_process != PROC_PARENT)
 		return;
@@ -270,7 +270,7 @@ vmd_sighdlr(int sig, short event, void *arg)
 		 * This is safe because libevent uses async signal handlers
 		 * that run in the event loop and not in signal context.
 		 */
-		vmd_reload(0, NULL);
+		newd_reload(0, NULL);
 		break;
 	case SIGPIPE:
 		log_info("%s: ignoring SIGPIPE", __func__);
@@ -280,7 +280,7 @@ vmd_sighdlr(int sig, short event, void *arg)
 		break;
 	case SIGTERM:
 	case SIGINT:
-		vmd_shutdown();
+		newd_shutdown();
 		break;
 	default:
 		fatalx("unexpected signal");
@@ -403,11 +403,11 @@ main(int argc, char **argv)
 
 	event_init();
 
-	signal_set(&ps->ps_evsigint, SIGINT, vmd_sighdlr, ps);
-	signal_set(&ps->ps_evsigterm, SIGTERM, vmd_sighdlr, ps);
-	signal_set(&ps->ps_evsighup, SIGHUP, vmd_sighdlr, ps);
-	signal_set(&ps->ps_evsigpipe, SIGPIPE, vmd_sighdlr, ps);
-	signal_set(&ps->ps_evsigusr1, SIGUSR1, vmd_sighdlr, ps);
+	signal_set(&ps->ps_evsigint, SIGINT, newd_sighdlr, ps);
+	signal_set(&ps->ps_evsigterm, SIGTERM, newd_sighdlr, ps);
+	signal_set(&ps->ps_evsighup, SIGHUP, newd_sighdlr, ps);
+	signal_set(&ps->ps_evsigpipe, SIGPIPE, newd_sighdlr, ps);
+	signal_set(&ps->ps_evsigusr1, SIGUSR1, newd_sighdlr, ps);
 
 	signal_add(&ps->ps_evsigint, NULL);
 	signal_add(&ps->ps_evsigterm, NULL);
@@ -418,7 +418,7 @@ main(int argc, char **argv)
 	if (!env->newd_noaction)
 		proc_connect(ps);
 
-	if (vmd_configure() == -1)
+	if (newd_configure() == -1)
 		fatalx("configuration failed");
 
 	event_dispatch();
@@ -429,7 +429,7 @@ main(int argc, char **argv)
 }
 
 int
-vmd_configure(void)
+newd_configure(void)
 {
 	/*
 	 * pledge in the parent process:
@@ -458,7 +458,7 @@ vmd_configure(void)
 }
 
 void
-vmd_reload(unsigned int reset, const char *filename)
+newd_reload(unsigned int reset, const char *filename)
 {
 	int	reload = 0;
 
@@ -491,7 +491,7 @@ vmd_reload(unsigned int reset, const char *filename)
 }
 
 void
-vmd_shutdown(void)
+newd_shutdown(void)
 {
 	proc_kill(&env->newd_ps);
 	free(env);

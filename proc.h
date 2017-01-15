@@ -78,8 +78,7 @@ extern  struct ctl_connlist ctl_conns;
 enum privsep_procid {
 	PROC_PARENT	= 0,
 	PROC_CONTROL,
-	PROC_VMM,
-	PROC_PRIV,
+	PROC_ENGINE,
 	PROC_MAX,
 } privsep_process;
 

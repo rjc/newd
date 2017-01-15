@@ -54,7 +54,7 @@ int vcpu_pic_intr(uint32_t, uint32_t, uint8_t);
 
 int vmm_pipe(struct vmd_vm *, int, void (*)(int, short, void *));
 void vmm_dispatch_vm(int, short, void *);
-void vm_dispatch_vmm(int, short, void *);
+void vm_dispatch_engine(int, short, void *);
 
 int con_fd;
 struct vmd_vm *current_vm;
@@ -68,7 +68,7 @@ static struct privsep_proc procs[] = {
 };
 
 void
-vmm(struct privsep *ps, struct privsep_proc *p)
+engine(struct privsep *ps, struct privsep_proc *p)
 {
 	proc_run(ps, p, procs, nitems(procs), vmm_run, NULL);
 }
@@ -85,7 +85,7 @@ vmm_run(struct privsep *ps, struct privsep_proc *p, void *arg)
 
 	/*
 	 * pledge in the vmm process:
- 	 * stdio - for malloc and basic I/O including events.
+	 * stdio - for malloc and basic I/O including events.
 	 * vmm - for the vmm ioctls and operations.
 	 * proc - for forking and maitaining vms.
 	 * recvfd - for disks, interfaces and other fds.
@@ -168,12 +168,6 @@ vmm_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 	case IMSG_CTL_RESET:
 		IMSG_SIZE_CHECK(imsg, &mode);
 		memcpy(&mode, imsg->data, sizeof(mode));
-
-		if (mode & CONFIG_VMS) {
-			/* Terminate and remove all VMs */
-			vmm_shutdown();
-			mode &= ~CONFIG_VMS;
-		}
 
 		config_getreset(env, imsg);
 		break;
@@ -276,7 +270,7 @@ vmm_sighdlr(int sig, short event, void *arg)
  * Terminate VMs on shutdown to avoid "zombie VM" processes.
  */
 void
-vmm_shutdown(void)
+engine_shutdown(void)
 {
 }
 
@@ -350,7 +344,7 @@ vmm_dispatch_vm(int fd, short event, void *arg)
 }
 
 void
-vm_dispatch_vmm(int fd, short event, void *arg)
+vm_dispatch_engine(int fd, short event, void *arg)
 {
 	struct vmd_vm		*vm = arg;
 	struct imsgev		*iev = &vm->vm_iev;
