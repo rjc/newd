@@ -108,8 +108,6 @@ config_setvm(struct privsep *ps, struct vmd_vm *vm, uint32_t peerid)
 
 	return (0);
 
- fail:
-	saved_errno = errno;
 	log_warnx("%s: failed to start vm radishes", __func__);
 
 	if (kernfd != -1)
@@ -144,55 +142,5 @@ config_getvm(struct privsep *ps, struct imsg *imsg)
 	if (errno == 0)
 		errno = EINVAL;
 
-	return (-1);
-}
-
-int
-config_getdisk(struct privsep *ps, struct imsg *imsg)
-{
-	struct vmd_vm	*vm;
-	unsigned int	 n;
-
-	errno = 0;
-	if ((vm = NULL) == NULL) {
-		errno = ENOENT;
-		return (-1);
-	}
-
-	IMSG_SIZE_CHECK(imsg, &n);
-	memcpy(&n, imsg->data, sizeof(n));
-
-	if (imsg->fd == -1) {
-		log_debug("invalid disk id");
-		errno = EINVAL;
-		return (-1);
-	}
-
-	return (0);
-}
-
-int
-config_getif(struct privsep *ps, struct imsg *imsg)
-{
-	unsigned int	 n;
-
-	errno = 0;
-	if (NULL) {
-		errno = ENOENT;
-		return (-1);
-	}
-
-	IMSG_SIZE_CHECK(imsg, &n);
-	memcpy(&n, imsg->data, sizeof(n));
-	if (imsg->fd == -1) {
-		log_debug("invalid interface id");
-		goto fail;
-	}
-
-	return (0);
- fail:
-	if (imsg->fd != -1)
-		close(imsg->fd);
-	errno = EINVAL;
 	return (-1);
 }

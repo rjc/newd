@@ -31,7 +31,6 @@
 
 enum imsg_type {
 	IMSG_VMDOP_START_VM_REQUEST = IMSG_PROC_MAX,
-	IMSG_VMDOP_START_VM_IF,
 	IMSG_VMDOP_START_VM_END,
 	IMSG_VMDOP_START_VM_RESPONSE,
 	IMSG_VMDOP_TERMINATE_VM_REQUEST,
@@ -96,8 +95,6 @@ int	 config_setreset(struct newd *, unsigned int);
 int	 config_getreset(struct newd *, struct imsg *);
 int	 config_setvm(struct privsep *, struct vmd_vm *, uint32_t);
 int	 config_getvm(struct privsep *, struct imsg *);
-int	 config_getdisk(struct privsep *, struct imsg *);
-int	 config_getif(struct privsep *, struct imsg *);
 
 /* parse.y */
 int	 parse_config(const char *);
