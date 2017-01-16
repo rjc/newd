@@ -53,8 +53,6 @@ struct vmop_result {
 };
 
 struct vmd_vm {
-	/* When set, VM is running now (PROC_PARENT only) */
-	int			 vm_running;
 	struct imsgev            vm_iev;
 };
 

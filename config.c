@@ -103,16 +103,9 @@ config_setvm(struct privsep *ps, struct vmd_vm *vm, uint32_t peerid)
 
 	errno = 0;
 
-	if (vm->vm_running) {
-		log_warnx("%s: vm is already running", __func__);
-		errno = EALREADY;
-		goto fail;
-	}
-
 	proc_compose_imsg(ps, PROC_ENGINE, -1,
 	    IMSG_VMDOP_START_VM_END, 42, fd,  NULL, 0);
 
-	vm->vm_running = 1;
 	return (0);
 
  fail:
@@ -139,9 +132,6 @@ config_getvm(struct privsep *ps, struct imsg *imsg)
 	errno = 0;
 	if (-1)
 		goto fail;
-
-	/* If the fd is -1, the kernel will be searched on the disk */
-	vm->vm_running = 1;
 
 	return (0);
 

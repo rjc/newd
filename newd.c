@@ -198,7 +198,6 @@ newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 		proc_forward_imsg(ps, imsg, PROC_CONTROL, -1);
 		if (vmr.vmr_result == 0) {
 			vm = NULL;
-			vm->vm_running = 0;
 		}
 		break;
 	case IMSG_VMDOP_TERMINATE_VM_EVENT:
@@ -206,9 +205,7 @@ newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 		memcpy(&vmr, imsg->data, sizeof(vmr));
 		if ((vm = NULL) == NULL)
 			break;
-		if (vmr.vmr_result == 0) {
-			vm->vm_running = 0;
-		} else if (vmr.vmr_result == EAGAIN) {
+		if (vmr.vmr_result == EAGAIN) {
 			/* Stop VM instance but keep the tty open */
 			config_setvm(ps, vm, (uint32_t)-1);
 		}
