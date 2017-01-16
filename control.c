@@ -83,10 +83,10 @@ control_dispatch_newd(int fd, struct privsep_proc *p, struct imsg *imsg)
 	struct ctl_conn		*c;
 
 	switch (imsg->hdr.type) {
-	case IMSG_VMDOP_START_VM_RESPONSE:
-	case IMSG_VMDOP_TERMINATE_VM_RESPONSE:
-	case IMSG_VMDOP_GET_INFO_VM_DATA:
-	case IMSG_VMDOP_GET_INFO_VM_END_DATA:
+	case IMSG_NEWDOP_START_VM_RESPONSE:
+	case IMSG_NEWDOP_TERMINATE_VM_RESPONSE:
+	case IMSG_NEWDOP_GET_INFO_VM_DATA:
+	case IMSG_NEWDOP_GET_INFO_VM_END_DATA:
 		if ((c = control_connbyfd(imsg->hdr.peerid)) == NULL) {
 			log_warnx("%s: fd %d: not found",
 			    __func__, imsg->hdr.peerid);
@@ -323,7 +323,7 @@ control_dispatch_imsg(int fd, short event, void *arg)
 			break;
 
 		switch (imsg.hdr.type) {
-		case IMSG_VMDOP_GET_INFO_VM_REQUEST:
+		case IMSG_NEWDOP_GET_INFO_VM_REQUEST:
 			break;
 		default:
 			if (c->peercred.uid != 0) {
@@ -356,9 +356,9 @@ control_dispatch_imsg(int fd, short event, void *arg)
 
 			proc_forward_imsg(ps, &imsg, PROC_PARENT, -1);
 			break;
-		case IMSG_VMDOP_START_VM_REQUEST:
-		case IMSG_VMDOP_TERMINATE_VM_REQUEST:
-		case IMSG_VMDOP_GET_INFO_VM_REQUEST:
+		case IMSG_NEWDOP_START_VM_REQUEST:
+		case IMSG_NEWDOP_TERMINATE_VM_REQUEST:
+		case IMSG_NEWDOP_GET_INFO_VM_REQUEST:
 			imsg.hdr.peerid = fd;
 
 			if (proc_compose_imsg(ps, PROC_PARENT, -1,
@@ -368,8 +368,8 @@ control_dispatch_imsg(int fd, short event, void *arg)
 				return;
 			}
 			break;
-		case IMSG_VMDOP_LOAD:
-		case IMSG_VMDOP_RELOAD:
+		case IMSG_NEWDOP_LOAD:
+		case IMSG_NEWDOP_RELOAD:
 		case IMSG_CTL_RESET:
 			proc_forward_imsg(ps, &imsg, PROC_PARENT, -1);
 			break;

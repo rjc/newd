@@ -76,7 +76,7 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 	char				*str = NULL;
 
 	switch (imsg->hdr.type) {
-	case IMSG_VMDOP_START_VM_REQUEST:
+	case IMSG_NEWDOP_START_VM_REQUEST:
 		IMSG_SIZE_CHECK(imsg, &ps);
 		memcpy(ps, imsg->data, sizeof(*ps));
 		ret = 0;
@@ -84,31 +84,31 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 			/* start an existing VM with pre-configured options */
 			if (!(ret == -1 && errno == EALREADY)) {
 				res = errno;
-				cmd = IMSG_VMDOP_START_VM_RESPONSE;
+				cmd = IMSG_NEWDOP_START_VM_RESPONSE;
 			}
 		} else if (ret != 0) {
 			res = errno;
-			cmd = IMSG_VMDOP_START_VM_RESPONSE;
+			cmd = IMSG_NEWDOP_START_VM_RESPONSE;
 		}
 		if (res == 0 &&
 		    config_setvm(ps, vm, imsg->hdr.peerid) == -1) {
 			res = errno;
-			cmd = IMSG_VMDOP_START_VM_RESPONSE;
+			cmd = IMSG_NEWDOP_START_VM_RESPONSE;
 		}
 		break;
-	case IMSG_VMDOP_TERMINATE_VM_REQUEST:
+	case IMSG_NEWDOP_TERMINATE_VM_REQUEST:
 		if (proc_compose_imsg(ps, PROC_ENGINE, -1, imsg->hdr.type,
 		    imsg->hdr.peerid, -1, &vm, sizeof(vm)) == -1)
 			return (-1);
 		break;
-	case IMSG_VMDOP_GET_INFO_VM_REQUEST:
+	case IMSG_NEWDOP_GET_INFO_VM_REQUEST:
 		proc_forward_imsg(ps, imsg, PROC_ENGINE, -1);
 		break;
-	case IMSG_VMDOP_LOAD:
+	case IMSG_NEWDOP_LOAD:
 		IMSG_SIZE_CHECK(imsg, str); /* at least one byte for path */
 		str = get_string((uint8_t *)imsg->data,
 		    IMSG_DATA_SIZE(imsg));
-	case IMSG_VMDOP_RELOAD:
+	case IMSG_NEWDOP_RELOAD:
 		newd_reload(0, str);
 		free(str);
 		break;
@@ -131,8 +131,8 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 	switch (cmd) {
 	case 0:
 		break;
-	case IMSG_VMDOP_START_VM_RESPONSE:
-	case IMSG_VMDOP_TERMINATE_VM_RESPONSE:
+	case IMSG_NEWDOP_START_VM_RESPONSE:
+	case IMSG_NEWDOP_TERMINATE_VM_RESPONSE:
 		memset(&vmr, 0, sizeof(vmr));
 		vmr.vmr_result = res;
 		if (proc_compose_imsg(ps, PROC_CONTROL, -1, cmd,
@@ -158,7 +158,7 @@ newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 	struct vmd_vm		*vm;
 
 	switch (imsg->hdr.type) {
-	case IMSG_VMDOP_START_VM_RESPONSE:
+	case IMSG_NEWDOP_START_VM_RESPONSE:
 		IMSG_SIZE_CHECK(imsg, &vmr);
 		memcpy(&vmr, imsg->data, sizeof(vmr));
 		if ((vm = NULL) == NULL)
@@ -190,7 +190,7 @@ newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 		log_info("%s: started vm %d successfully, tty %s",
 		    "sparklemuffin", 1, "elk");
 		break;
-	case IMSG_VMDOP_TERMINATE_VM_RESPONSE:
+	case IMSG_NEWDOP_TERMINATE_VM_RESPONSE:
 		IMSG_SIZE_CHECK(imsg, &vmr);
 		memcpy(&vmr, imsg->data, sizeof(vmr));
 		proc_forward_imsg(ps, imsg, PROC_CONTROL, -1);
@@ -198,7 +198,7 @@ newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 			vm = NULL;
 		}
 		break;
-	case IMSG_VMDOP_TERMINATE_VM_EVENT:
+	case IMSG_NEWDOP_TERMINATE_VM_EVENT:
 		IMSG_SIZE_CHECK(imsg, &vmr);
 		memcpy(&vmr, imsg->data, sizeof(vmr));
 		if ((vm = NULL) == NULL)
@@ -208,9 +208,9 @@ newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 			config_setvm(ps, vm, (uint32_t)-1);
 		}
 		break;
-	case IMSG_VMDOP_GET_INFO_VM_DATA:
+	case IMSG_NEWDOP_GET_INFO_VM_DATA:
 		break;
-	case IMSG_VMDOP_GET_INFO_VM_END_DATA:
+	case IMSG_NEWDOP_GET_INFO_VM_END_DATA:
 		/*
 		 * PROC_ENGINE has responded with the *running* VMs, now we
 		 * append the others. These use the special value 0 for their

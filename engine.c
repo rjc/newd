@@ -97,17 +97,17 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 	unsigned int		 mode;
 
 	switch (imsg->hdr.type) {
-	case IMSG_VMDOP_START_VM_REQUEST:
+	case IMSG_NEWDOP_START_VM_REQUEST:
 		res = config_getvm(ps, imsg);
 		if (res == -1) {
 			res = errno;
-			cmd = IMSG_VMDOP_START_VM_RESPONSE;
+			cmd = IMSG_NEWDOP_START_VM_RESPONSE;
 		}
 		break;
-	case IMSG_VMDOP_START_VM_END:
-		cmd = IMSG_VMDOP_START_VM_RESPONSE;
+	case IMSG_NEWDOP_START_VM_END:
+		cmd = IMSG_NEWDOP_START_VM_RESPONSE;
 		break;
-	case IMSG_VMDOP_TERMINATE_VM_REQUEST:
+	case IMSG_NEWDOP_TERMINATE_VM_REQUEST:
 		IMSG_SIZE_CHECK(imsg, &mode);
 		memcpy(&mode, imsg->data, sizeof(mode));
 		id = 1;
@@ -124,7 +124,7 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 			 * of the VM.
 			 */
 			if (imsg_compose_event(&vm->vm_iev,
-			    IMSG_VMDOP_VM_REBOOT, 0, 0, -1, NULL, 0) == -1)
+			    IMSG_NEWDOP_VM_REBOOT, 0, 0, -1, NULL, 0) == -1)
 				res = errno;
 			else
 				res = 0;
@@ -132,11 +132,11 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 			/* Terminate VMs that are unknown or shutting down */
 			res = 0;
 		}
-		cmd = IMSG_VMDOP_TERMINATE_VM_RESPONSE;
+		cmd = IMSG_NEWDOP_TERMINATE_VM_RESPONSE;
 		break;
-	case IMSG_VMDOP_GET_INFO_VM_REQUEST:
+	case IMSG_NEWDOP_GET_INFO_VM_REQUEST:
 		res = 0;
-		cmd = IMSG_VMDOP_GET_INFO_VM_END_DATA;
+		cmd = IMSG_NEWDOP_GET_INFO_VM_END_DATA;
 		break;
 	case IMSG_CTL_RESET:
 		IMSG_SIZE_CHECK(imsg, &mode);
@@ -158,10 +158,10 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 	switch (cmd) {
 	case 0:
 		break;
-	case IMSG_VMDOP_START_VM_RESPONSE:
+	case IMSG_NEWDOP_START_VM_RESPONSE:
 		if (res != 0) {
 		}
-	case IMSG_VMDOP_TERMINATE_VM_RESPONSE:
+	case IMSG_NEWDOP_TERMINATE_VM_RESPONSE:
 		memset(&vmr, 0, sizeof(vmr));
 		vmr.vmr_result = res;
 		if (proc_compose_imsg(ps, PROC_PARENT, -1, cmd,
@@ -201,7 +201,7 @@ engine_sighdlr(int sig, short event, void *arg)
 					/*
 					 * If the VM is gone already, it
 					 * got terminated via a
-					 * IMSG_VMDOP_TERMINATE_VM_REQUEST.
+					 * IMSG_NEWDOP_TERMINATE_VM_REQUEST.
 					 */
 					continue;
 				}
@@ -218,7 +218,7 @@ engine_sighdlr(int sig, short event, void *arg)
 					memset(&vmr, 0, sizeof(vmr));
 					vmr.vmr_result = ret;
 					if (proc_compose_imsg(ps, PROC_PARENT,
-					    -1, IMSG_VMDOP_TERMINATE_VM_EVENT,
+					    -1, IMSG_NEWDOP_TERMINATE_VM_EVENT,
 					    0, -1, &vmr, sizeof(vmr)) == -1)
 						log_warnx("could not signal "
 						    "termination of VM %u to "
