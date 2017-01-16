@@ -165,17 +165,16 @@ newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 		memcpy(&vmr, imsg->data, sizeof(vmr));
 		if ((vm = NULL) == NULL)
 			fatalx("%s: invalid vm response", __func__);
-		vm->vm_pid = vmr.vmr_pid;
 
 		/*
 		 * If the peerid is not -1, forward the response back to the
 		 * the control socket.  If it is -1, the request originated
 		 * from the parent, not the control socket.
 		 */
-		if (vm->vm_peerid != (uint32_t)-1) {
+		if (1) {
 			vmr.vmr_result = res;
 			if (proc_compose_imsg(ps, PROC_CONTROL, -1,
-			    imsg->hdr.type, vm->vm_peerid, -1,
+			    imsg->hdr.type, 42, -1,
 			    &vmr, sizeof(vmr)) == -1) {
 				errno = vmr.vmr_result;
 				log_warn("%s: failed to foward vm result",

@@ -53,10 +53,6 @@ struct vmop_result {
 };
 
 struct vmd_vm {
-	pid_t			 vm_pid;
-	/* Userspace ID of VM. The user never sees this */
-	uint32_t		 vm_vmid;
-	uint32_t		 vm_peerid;
 	/* When set, VM is running now (PROC_PARENT only) */
 	int			 vm_running;
 	struct imsgev            vm_iev;
