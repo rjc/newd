@@ -104,13 +104,6 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 			cmd = IMSG_VMDOP_START_VM_RESPONSE;
 		}
 		break;
-	case IMSG_VMDOP_START_VM_DISK:
-		res = config_getdisk(ps, imsg);
-		if (res == -1) {
-			res = errno;
-			cmd = IMSG_VMDOP_START_VM_RESPONSE;
-		}
-		break;
 	case IMSG_VMDOP_START_VM_IF:
 		res = config_getif(ps, imsg);
 		if (res == -1) {
