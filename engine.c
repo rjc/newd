@@ -76,13 +76,13 @@ engine_run(struct privsep *ps, struct privsep_proc *p, void *arg)
 	signal_add(&ps->ps_evsigchld, NULL);
 
 	/*
-	 * pledge in the vmm process:
+	 * pledge in the engine process:
 	 * stdio - for malloc and basic I/O including events.
-	 * vmm - for the vmm ioctls and operations.
+	 * engine - for the engine ioctls and operations.
 	 * proc - for forking and maitaining vms.
 	 * recvfd - for disks, interfaces and other fds.
 	 */
-	if (pledge("stdio vmm recvfd proc", NULL) == -1)
+	if (pledge("stdio engine recvfd proc", NULL) == -1)
 		fatal("pledge");
 }
 
