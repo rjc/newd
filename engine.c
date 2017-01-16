@@ -164,7 +164,6 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 	case IMSG_VMDOP_TERMINATE_VM_RESPONSE:
 		memset(&vmr, 0, sizeof(vmr));
 		vmr.vmr_result = res;
-		vmr.vmr_id = id;
 		if (proc_compose_imsg(ps, PROC_PARENT, -1, cmd,
 		    imsg->hdr.peerid, -1, &vmr, sizeof(vmr)) == -1)
 			return (-1);
@@ -218,7 +217,6 @@ engine_sighdlr(int sig, short event, void *arg)
 				if (0) {
 					memset(&vmr, 0, sizeof(vmr));
 					vmr.vmr_result = ret;
-					vmr.vmr_id = vmid;
 					if (proc_compose_imsg(ps, PROC_PARENT,
 					    -1, IMSG_VMDOP_TERMINATE_VM_EVENT,
 					    0, -1, &vmr, sizeof(vmr)) == -1)

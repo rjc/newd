@@ -74,7 +74,6 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 	struct vmop_result		 vmr;
 	struct vmd_vm			*vm = NULL;
 	char				*str = NULL;
-	uint32_t			 id = 0;
 
 	switch (imsg->hdr.type) {
 	case IMSG_VMDOP_START_VM_REQUEST:
@@ -136,7 +135,6 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 	case IMSG_VMDOP_TERMINATE_VM_RESPONSE:
 		memset(&vmr, 0, sizeof(vmr));
 		vmr.vmr_result = res;
-		vmr.vmr_id = id;
 		if (proc_compose_imsg(ps, PROC_CONTROL, -1, cmd,
 		    imsg->hdr.peerid, -1, &vmr, sizeof(vmr)) == -1)
 			return (-1);

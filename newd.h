@@ -46,9 +46,6 @@ enum imsg_type {
 
 struct vmop_result {
 	int			 vmr_result;
-	uint32_t		 vmr_id;
-	pid_t			 vmr_pid;
-	char			 vmr_ttyname[16];
 };
 
 struct vmd_vm {
