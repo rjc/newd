@@ -45,15 +45,11 @@
 #include "newd.h"
 #include "engine.h"
 
-void vmm_sighdlr(int, short, void *);
-int opentap(char *);
+void engine_sighdlr(int, short, void *);
 int engine_dispatch_parent(int, struct privsep_proc *, struct imsg *);
-void vmm_run(struct privsep *, struct privsep_proc *, void *);
+void engine_run(struct privsep *, struct privsep_proc *, void *);
 
-int vmm_pipe(struct vmd_vm *, int, void (*)(int, short, void *));
-
-int con_fd;
-struct vmd_vm *current_vm;
+int engine_pipe(struct vmd_vm *, int, void (*)(int, short, void *));
 
 extern struct newd *env;
 
@@ -66,17 +62,17 @@ static struct privsep_proc procs[] = {
 void
 engine(struct privsep *ps, struct privsep_proc *p)
 {
-	proc_run(ps, p, procs, nitems(procs), vmm_run, NULL);
+	proc_run(ps, p, procs, nitems(procs), engine_run, NULL);
 }
 
 void
-vmm_run(struct privsep *ps, struct privsep_proc *p, void *arg)
+engine_run(struct privsep *ps, struct privsep_proc *p, void *arg)
 {
 	if (config_init(ps->ps_env) == -1)
 		fatal("failed to initialize configuration");
 
 	signal_del(&ps->ps_evsigchld);
-	signal_set(&ps->ps_evsigchld, SIGCHLD, vmm_sighdlr, ps);
+	signal_set(&ps->ps_evsigchld, SIGCHLD, engine_sighdlr, ps);
 	signal_add(&ps->ps_evsigchld, NULL);
 
 	/*
@@ -198,7 +194,7 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 }
 
 void
-vmm_sighdlr(int sig, short event, void *arg)
+engine_sighdlr(int sig, short event, void *arg)
 {
 	struct privsep *ps = arg;
 	int status, ret = 0;
@@ -256,7 +252,7 @@ vmm_sighdlr(int sig, short event, void *arg)
 }
 
 /*
- * vmm_shutdown
+ * engine_shutdown
  *
  * Terminate VMs on shutdown to avoid "zombie VM" processes.
  */
@@ -266,7 +262,7 @@ engine_shutdown(void)
 }
 
 int
-vmm_pipe(struct vmd_vm *vm, int fd, void (*cb)(int, short, void *))
+engine_pipe(struct vmd_vm *vm, int fd, void (*cb)(int, short, void *))
 {
 	struct imsgev	*iev = &vm->vm_iev;
 
