@@ -82,7 +82,7 @@ engine_run(struct privsep *ps, struct privsep_proc *p, void *arg)
 	 * proc - for forking and maitaining vms.
 	 * recvfd - for disks, interfaces and other fds.
 	 */
-	if (pledge("stdio engine recvfd proc", NULL) == -1)
+	if (pledge("stdio recvfd proc", NULL) == -1)
 		fatal("pledge");
 }
 
