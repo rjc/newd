@@ -180,55 +180,7 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 void
 engine_sighdlr(int sig, short event, void *arg)
 {
-	struct privsep *ps = arg;
-	int status, ret = 0;
-	uint32_t vmid;
-	pid_t pid;
-	struct vmop_result vmr;
-	struct vmd_vm *vm;
-
 	switch (sig) {
-	case SIGCHLD:
-		do {
-			pid = waitpid(-1, &status, WNOHANG);
-			if (pid <= 0)
-				continue;
-
-			if (WIFEXITED(status) || WIFSIGNALED(status)) {
-				vm = NULL;
-				if (vm == NULL) {
-					/*
-					 * If the VM is gone already, it
-					 * got terminated via a
-					 * IMSG_NEWDOP_TERMINATE_VM_REQUEST.
-					 */
-					continue;
-				}
-
-				if (WIFEXITED(status))
-					ret = WEXITSTATUS(status);
-
-				/* don't reboot on pending shutdown */
-				if (ret == EAGAIN)
-					ret = 0;
-
-				vmid = 1;
-				if (0) {
-					memset(&vmr, 0, sizeof(vmr));
-					vmr.vmr_result = ret;
-					if (proc_compose_imsg(ps, PROC_PARENT,
-					    -1, IMSG_NEWDOP_TERMINATE_VM_EVENT,
-					    0, -1, &vmr, sizeof(vmr)) == -1)
-						log_warnx("could not signal "
-						    "termination of VM %u to "
-						    "parent", vmid);
-				} else
-					log_warnx("could not terminate VM %u",
-					    vmid);
-			} else
-				fatalx("unexpected cause of SIGCHLD");
-		} while (pid > 0 || (pid == -1 && errno == EINTR));
-		break;
 	default:
 		fatalx("unexpected signal");
 	}
