@@ -78,7 +78,6 @@ engine_run(struct privsep *ps, struct privsep_proc *p, void *arg)
 	/*
 	 * pledge in the engine process:
 	 * stdio - for malloc and basic I/O including events.
-	 * engine - for the engine ioctls and operations.
 	 * proc - for forking and maitaining vms.
 	 * recvfd - for disks, interfaces and other fds.
 	 */
