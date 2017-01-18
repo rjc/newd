@@ -104,7 +104,7 @@ config_setvm(struct privsep *ps, struct vmd_vm *vm, uint32_t peerid)
 	errno = 0;
 
 	proc_compose_imsg(ps, PROC_ENGINE, -1,
-	    IMSG_NEWDOP_START_VM_END, 42, fd,  NULL, 0);
+	    IMSG_NEWDOP_START_GROUP_END, 42, fd,  NULL, 0);
 
 	return (0);
 

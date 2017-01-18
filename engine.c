@@ -96,17 +96,17 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 	unsigned int		 mode;
 
 	switch (imsg->hdr.type) {
-	case IMSG_NEWDOP_START_VM_REQUEST:
+	case IMSG_NEWDOP_START_GROUP_REQUEST:
 		res = config_getvm(ps, imsg);
 		if (res == -1) {
 			res = errno;
-			cmd = IMSG_NEWDOP_START_VM_RESPONSE;
+			cmd = IMSG_NEWDOP_START_GROUP_RESPONSE;
 		}
 		break;
-	case IMSG_NEWDOP_START_VM_END:
-		cmd = IMSG_NEWDOP_START_VM_RESPONSE;
+	case IMSG_NEWDOP_START_GROUP_END:
+		cmd = IMSG_NEWDOP_START_GROUP_RESPONSE;
 		break;
-	case IMSG_NEWDOP_TERMINATE_VM_REQUEST:
+	case IMSG_NEWDOP_TERMINATE_GROUP_REQUEST:
 		IMSG_SIZE_CHECK(imsg, &mode);
 		memcpy(&mode, imsg->data, sizeof(mode));
 		id = 1;
@@ -123,7 +123,7 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 			 * of the VM.
 			 */
 			if (imsg_compose_event(&vm->vm_iev,
-			    IMSG_NEWDOP_VM_REBOOT, 0, 0, -1, NULL, 0) == -1)
+			    IMSG_NEWDOP_GROUP_REBOOT, 0, 0, -1, NULL, 0) == -1)
 				res = errno;
 			else
 				res = 0;
@@ -131,11 +131,11 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 			/* Terminate VMs that are unknown or shutting down */
 			res = 0;
 		}
-		cmd = IMSG_NEWDOP_TERMINATE_VM_RESPONSE;
+		cmd = IMSG_NEWDOP_TERMINATE_GROUP_RESPONSE;
 		break;
-	case IMSG_NEWDOP_GET_INFO_VM_REQUEST:
+	case IMSG_NEWDOP_GET_INFO_GROUP_REQUEST:
 		res = 0;
-		cmd = IMSG_NEWDOP_GET_INFO_VM_END_DATA;
+		cmd = IMSG_NEWDOP_GET_INFO_GROUP_END_DATA;
 		break;
 	case IMSG_CTL_RESET:
 		IMSG_SIZE_CHECK(imsg, &mode);
@@ -157,10 +157,10 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 	switch (cmd) {
 	case 0:
 		break;
-	case IMSG_NEWDOP_START_VM_RESPONSE:
+	case IMSG_NEWDOP_START_GROUP_RESPONSE:
 		if (res != 0) {
 		}
-	case IMSG_NEWDOP_TERMINATE_VM_RESPONSE:
+	case IMSG_NEWDOP_TERMINATE_GROUP_RESPONSE:
 		memset(&vmr, 0, sizeof(vmr));
 		vmr.vmr_result = res;
 		if (proc_compose_imsg(ps, PROC_PARENT, -1, cmd,
