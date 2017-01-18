@@ -110,27 +110,6 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 		IMSG_SIZE_CHECK(imsg, &mode);
 		memcpy(&mode, imsg->data, sizeof(mode));
 		id = 1;
-
-		if ((vm = NULL) != NULL) {
-			log_debug("%s: sending shutdown request to vm %d",
-			    __func__, id);
-
-			/*
-			 * Request reboot but mark the VM as shutting down.
-			 * This way we can terminate the VM after the triple
-			 * fault instead of reboot and avoid being stuck in
-			 * the ACPI-less powerdown ("press any key to reboot")
-			 * of the VM.
-			 */
-			if (imsg_compose_event(&vm->vm_iev,
-			    IMSG_NEWDOP_GROUP_REBOOT, 0, 0, -1, NULL, 0) == -1)
-				res = errno;
-			else
-				res = 0;
-		} else {
-			/* Terminate VMs that are unknown or shutting down */
-			res = 0;
-		}
 		cmd = IMSG_NEWDOP_TERMINATE_GROUP_RESPONSE;
 		break;
 	case IMSG_NEWDOP_GET_INFO_GROUP_REQUEST:
