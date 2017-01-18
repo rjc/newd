@@ -90,31 +90,13 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 {
 	struct privsep		*ps = p->p_ps;
 	int			 res = 0, cmd = 0, verbose;
-	struct vmd_vm		*vm;
 	struct vmop_result	 vmr;
-	uint32_t		 id = 0;
 	unsigned int		 mode;
 
 	switch (imsg->hdr.type) {
-	case IMSG_NEWDOP_START_GROUP_REQUEST:
-		res = config_getvm(ps, imsg);
-		if (res == -1) {
-			res = errno;
-			cmd = IMSG_NEWDOP_START_GROUP_RESPONSE;
-		}
-		break;
-	case IMSG_NEWDOP_START_GROUP_END:
-		cmd = IMSG_NEWDOP_START_GROUP_RESPONSE;
-		break;
-	case IMSG_NEWDOP_TERMINATE_GROUP_REQUEST:
-		IMSG_SIZE_CHECK(imsg, &mode);
-		memcpy(&mode, imsg->data, sizeof(mode));
-		id = 1;
-		cmd = IMSG_NEWDOP_TERMINATE_GROUP_RESPONSE;
-		break;
-	case IMSG_NEWDOP_GET_INFO_GROUP_REQUEST:
+	case IMSG_NEWDOP_GET_INFO_ENGINE_REQUEST:
 		res = 0;
-		cmd = IMSG_NEWDOP_GET_INFO_GROUP_END_DATA;
+		cmd = IMSG_NEWDOP_GET_INFO_ENGINE_END_DATA;
 		break;
 	case IMSG_CTL_RESET:
 		IMSG_SIZE_CHECK(imsg, &mode);
@@ -126,8 +108,6 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 		IMSG_SIZE_CHECK(imsg, &verbose);
 		memcpy(&verbose, imsg->data, sizeof(verbose));
 		log_setverbose(verbose);
-
-		/* Forward message to each process */
 		break;
 	default:
 		return (-1);
@@ -136,10 +116,7 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 	switch (cmd) {
 	case 0:
 		break;
-	case IMSG_NEWDOP_START_GROUP_RESPONSE:
-		if (res != 0) {
-		}
-	case IMSG_NEWDOP_TERMINATE_GROUP_RESPONSE:
+	case IMSG_NEWDOP_GET_INFO_ENGINE_END_DATA:
 		memset(&vmr, 0, sizeof(vmr));
 		vmr.vmr_result = res;
 		if (proc_compose_imsg(ps, PROC_PARENT, -1, cmd,

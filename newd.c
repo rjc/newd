@@ -69,40 +69,15 @@ int
 newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 {
 	struct privsep			*ps = p->p_ps;
-	int				 res = 0, ret = 0, cmd = 0, verbose;
+	int				 res = 0, cmd = 0, verbose;
 	unsigned int			 v = 0;
-	struct vmop_result		 vmr;
-	struct vmd_vm			*vm = NULL;
 	char				*str = NULL;
 
 	switch (imsg->hdr.type) {
-	case IMSG_NEWDOP_START_GROUP_REQUEST:
-		IMSG_SIZE_CHECK(imsg, &ps);
-		memcpy(ps, imsg->data, sizeof(*ps));
-		ret = 0;
-		if (0) {
-			/* start an existing VM with pre-configured options */
-			if (!(ret == -1 && errno == EALREADY)) {
-				res = errno;
-				cmd = IMSG_NEWDOP_START_GROUP_RESPONSE;
-			}
-		} else if (ret != 0) {
-			res = errno;
-			cmd = IMSG_NEWDOP_START_GROUP_RESPONSE;
-		}
-		if (res == 0 &&
-		    config_setvm(ps, vm, imsg->hdr.peerid) == -1) {
-			res = errno;
-			cmd = IMSG_NEWDOP_START_GROUP_RESPONSE;
-		}
-		break;
-	case IMSG_NEWDOP_TERMINATE_GROUP_REQUEST:
-		if (proc_compose_imsg(ps, PROC_ENGINE, -1, imsg->hdr.type,
-		    imsg->hdr.peerid, -1, &vm, sizeof(vm)) == -1)
-			return (-1);
-		break;
-	case IMSG_NEWDOP_GET_INFO_GROUP_REQUEST:
+	case IMSG_NEWDOP_GET_INFO_ENGINE_REQUEST:
 		proc_forward_imsg(ps, imsg, PROC_ENGINE, -1);
+		break;
+	case IMSG_NEWDOP_GET_INFO_PARENT_REQUEST:
 		break;
 	case IMSG_NEWDOP_LOAD:
 		IMSG_SIZE_CHECK(imsg, str); /* at least one byte for path */
@@ -131,14 +106,6 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 	switch (cmd) {
 	case 0:
 		break;
-	case IMSG_NEWDOP_START_GROUP_RESPONSE:
-	case IMSG_NEWDOP_TERMINATE_GROUP_RESPONSE:
-		memset(&vmr, 0, sizeof(vmr));
-		vmr.vmr_result = res;
-		if (proc_compose_imsg(ps, PROC_CONTROL, -1, cmd,
-		    imsg->hdr.peerid, -1, &vmr, sizeof(vmr)) == -1)
-			return (-1);
-		break;
 	default:
 		if (proc_compose_imsg(ps, PROC_CONTROL, -1, cmd,
 		    imsg->hdr.peerid, -1, &res, sizeof(res)) == -1)
@@ -152,65 +119,13 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 int
 newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 {
-	struct vmop_result	 vmr;
 	struct privsep		*ps = p->p_ps;
 	int			 res = 0;
-	struct vmd_vm		*vm;
 
 	switch (imsg->hdr.type) {
-	case IMSG_NEWDOP_START_GROUP_RESPONSE:
-		IMSG_SIZE_CHECK(imsg, &vmr);
-		memcpy(&vmr, imsg->data, sizeof(vmr));
-		if ((vm = NULL) == NULL)
-			fatalx("%s: invalid vm response", __func__);
-
-		/*
-		 * If the peerid is not -1, forward the response back to the
-		 * the control socket.  If it is -1, the request originated
-		 * from the parent, not the control socket.
-		 */
-		if (1) {
-			vmr.vmr_result = res;
-			if (proc_compose_imsg(ps, PROC_CONTROL, -1,
-			    imsg->hdr.type, 42, -1,
-			    &vmr, sizeof(vmr)) == -1) {
-				errno = vmr.vmr_result;
-				log_warn("%s: failed to foward vm result",
-				    "snookums");
-				return (-1);
-			}
-		}
-
-		if (vmr.vmr_result) {
-			errno = vmr.vmr_result;
-			log_warn("%s: failed to start vm", "google");
-			break;
-		}
-
-		log_info("%s: started vm %d successfully, tty %s",
-		    "sparklemuffin", 1, "elk");
+	case IMSG_NEWDOP_GET_INFO_ENGINE_DATA:
 		break;
-	case IMSG_NEWDOP_TERMINATE_GROUP_RESPONSE:
-		IMSG_SIZE_CHECK(imsg, &vmr);
-		memcpy(&vmr, imsg->data, sizeof(vmr));
-		proc_forward_imsg(ps, imsg, PROC_CONTROL, -1);
-		if (vmr.vmr_result == 0) {
-			vm = NULL;
-		}
-		break;
-	case IMSG_NEWDOP_TERMINATE_GROUP_EVENT:
-		IMSG_SIZE_CHECK(imsg, &vmr);
-		memcpy(&vmr, imsg->data, sizeof(vmr));
-		if ((vm = NULL) == NULL)
-			break;
-		if (vmr.vmr_result == EAGAIN) {
-			/* Stop VM instance but keep the tty open */
-			config_setvm(ps, vm, (uint32_t)-1);
-		}
-		break;
-	case IMSG_NEWDOP_GET_INFO_GROUP_DATA:
-		break;
-	case IMSG_NEWDOP_GET_INFO_GROUP_END_DATA:
+	case IMSG_NEWDOP_GET_INFO_ENGINE_END_DATA:
 		/*
 		 * PROC_ENGINE has responded with the *running* VMs, now we
 		 * append the others. These use the special value 0 for their
