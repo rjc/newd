@@ -49,8 +49,6 @@ void engine_sighdlr(int, short, void *);
 int engine_dispatch_parent(int, struct privsep_proc *, struct imsg *);
 void engine_run(struct privsep *, struct privsep_proc *, void *);
 
-int engine_pipe(struct vmd_vm *, int, void (*)(int, short, void *));
-
 extern struct newd *env;
 
 extern char *__progname;
@@ -78,10 +76,8 @@ engine_run(struct privsep *ps, struct privsep_proc *p, void *arg)
 	/*
 	 * pledge in the engine process:
 	 * stdio - for malloc and basic I/O including events.
-	 * proc - for forking and maitaining vms.
-	 * recvfd - for disks, interfaces and other fds.
 	 */
-	if (pledge("stdio recvfd proc", NULL) == -1)
+	if (pledge("stdio", NULL) == -1)
 		fatal("pledge");
 }
 
@@ -90,7 +86,6 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 {
 	struct privsep		*ps = p->p_ps;
 	int			 res = 0, cmd = 0, verbose;
-	struct vmop_result	 vmr;
 	unsigned int		 mode;
 
 	switch (imsg->hdr.type) {
@@ -117,10 +112,8 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 	case 0:
 		break;
 	case IMSG_NEWDOP_GET_INFO_ENGINE_END_DATA:
-		memset(&vmr, 0, sizeof(vmr));
-		vmr.vmr_result = res;
 		if (proc_compose_imsg(ps, PROC_PARENT, -1, cmd,
-		    imsg->hdr.peerid, -1, &vmr, sizeof(vmr)) == -1)
+		    imsg->hdr.peerid, -1, &mode, sizeof(mode)) == -1)
 			return (-1);
 		break;
 	default:
@@ -144,28 +137,8 @@ engine_sighdlr(int sig, short event, void *arg)
 
 /*
  * engine_shutdown
- *
- * Terminate VMs on shutdown to avoid "zombie VM" processes.
  */
 void
 engine_shutdown(void)
 {
-}
-
-int
-engine_pipe(struct vmd_vm *vm, int fd, void (*cb)(int, short, void *))
-{
-	struct imsgev	*iev = &vm->vm_iev;
-
-	if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) {
-		log_warn("failed to set nonblocking mode on vm pipe");
-		return (-1);
-	}
-
-	imsg_init(&iev->ibuf, fd);
-	iev->handler = cb;
-	iev->data = vm;
-	imsg_event_add(iev);
-
-	return (0);
 }

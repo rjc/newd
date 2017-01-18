@@ -43,12 +43,24 @@ enum imsg_type {
 	IMSG_NEWDOP_RELOAD
 };
 
-struct vmop_result {
-	int			 vmr_result;
+struct newd_control_info {
+	int		yesno;
+	int		integer;
+	char		global_text[NEWD_MAXTEXT];
 };
 
-struct vmd_vm {
-	struct imsgev            vm_iev;
+struct newd_engine_info {
+	char		name[NEWD_MAXGROUPNAME];
+	int		yesno;
+	int		integer;
+	int		group_v4_bits;
+	int		group_v6_bits;
+	struct in_addr	group_v4address;
+	struct in6_addr	group_v6address;
+};
+
+struct newd_parent_info {
+	char		text[NEWD_MAXTEXT];
 };
 
 struct group {
