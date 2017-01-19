@@ -78,7 +78,7 @@ engine_run(struct privsep *ps, struct privsep_proc *p, void *arg)
 	 * pledge in the engine process:
 	 * stdio - for malloc and basic I/O including events.
 	 */
-	if (pledge("stdio", NULL) == -1)
+	if (pledge("stdio recvfd", NULL) == -1)
 		fatal("pledge");
 }
 
