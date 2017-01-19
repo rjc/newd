@@ -109,7 +109,7 @@ typedef struct {
 
 %token	<v.string>	STRING
 %token	<v.number>	NUMBER
-%type	<v.number>	newd_yesno
+%type	<v.number>	yesno
 %type	<v.string>	string
 
 %%
@@ -151,7 +151,7 @@ string		: string STRING	{
 		| STRING
 		;
 
-newd_yesno		: YES	{ $$ = 1; }
+yesno		: YES	{ $$ = 1; }
 		| NO	{ $$ = 0; }
 		;
 
@@ -173,7 +173,7 @@ varset		: STRING '=' string		{
 		}
 		;
 
-conf_main	: YESNO newd_yesno {
+conf_main	: YESNO yesno {
 			env->newd_yesno = $2;
 		}
 		| INTEGER NUMBER {
@@ -234,7 +234,7 @@ groupoptsl	: GROUP_V4ADDRESS STRING {
 				YYERROR;
 			}
 		}
-		| YESNO newd_yesno {
+		| YESNO yesno {
 			group->newd_group_yesno = $2;
 		}
 		| INTEGER NUMBER {
@@ -281,10 +281,10 @@ lookup(char *s)
 		{"group-v4address",	GROUP_V4ADDRESS},
 		{"group-v6address",	GROUP_V6ADDRESS},
 		{"include",		INCLUDE},
-		{"newd_integer",		INTEGER},
+		{"integer",		INTEGER},
 		{"no",			NO},
 		{"yes",			YES},
-		{"newd_yesno",		YESNO}
+		{"yesno",		YESNO}
 	};
 	const struct keywords	*p;
 
