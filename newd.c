@@ -82,10 +82,9 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 	case IMSG_NEWDOP_GET_INFO_PARENT_REQUEST:
 		newd_show_info(ps, imsg);
 		break;
-	case IMSG_NEWDOP_LOAD:
+	case IMSG_NEWDOP_RELOAD:
 		IMSG_SIZE_CHECK(imsg, str); /* at least one byte for path */
 		str = get_string((uint8_t *)imsg->data, IMSG_DATA_SIZE(imsg));
-	case IMSG_NEWDOP_RELOAD:
 		newd_reload(0, str);
 		free(str);
 		break;
