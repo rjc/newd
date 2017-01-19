@@ -85,8 +85,7 @@ config_setreset(struct newd *env, unsigned int reset)
 	unsigned int	 id;
 
 	for (id = 0; id < PROC_MAX; id++) {
-		if ((reset & ps->ps_what[id]) == 0 ||
-		    id == privsep_process)
+		if (id == privsep_process)
 			continue;
 		proc_compose(ps, id, IMSG_CTL_RESET, &reset, sizeof(reset));
 	}

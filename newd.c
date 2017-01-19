@@ -73,7 +73,6 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 	struct privsep			*ps = p->p_ps;
 	int				 res = 0, cmd = 0, verbose;
 	unsigned int			 v = 0;
-	char				*str = NULL;
 
 	switch (imsg->hdr.type) {
 	case IMSG_NEWDOP_GET_INFO_ENGINE_REQUEST:
@@ -82,16 +81,10 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 	case IMSG_NEWDOP_GET_INFO_PARENT_REQUEST:
 		newd_show_info(ps, imsg);
 		break;
-	case IMSG_NEWDOP_RELOAD:
-		IMSG_SIZE_CHECK(imsg, str); /* at least one byte for path */
-		str = get_string((uint8_t *)imsg->data, IMSG_DATA_SIZE(imsg));
-		newd_reload(0, str);
-		free(str);
-		break;
 	case IMSG_CTL_RESET:
 		IMSG_SIZE_CHECK(imsg, &v);
 		memcpy(&v, imsg->data, sizeof(v));
-		newd_reload(v, str);
+		newd_reload(v);
 		break;
 	case IMSG_CTL_VERBOSE:
 		IMSG_SIZE_CHECK(imsg, &verbose);
@@ -153,7 +146,7 @@ newd_sighdlr(int sig, short event, void *arg)
 		 * This is safe because libevent uses async signal handlers
 		 * that run in the event loop and not in signal context.
 		 */
-		newd_reload(0, NULL);
+		newd_reload(0);
 		break;
 	case SIGPIPE:
 		log_info("%s: ignoring SIGPIPE", __func__);
@@ -360,35 +353,19 @@ newd_configure(struct privsep *ps)
 }
 
 void
-newd_reload(unsigned int reset, const char *filename)
+newd_reload(int reset)
 {
-	int	reload = 0;
+	const char *filename = env->newd_conffile;
 
-	/* Switch back to the default config file */
-	if (filename == NULL || *filename == '\0') {
-		filename = env->newd_conffile;
-		reload = 1;
-	}
+	log_debug("%s: reload config file %s", __func__, filename);
 
-	log_debug("%s: level %d config file %s", __func__, reset, filename);
+	/* Purge the existing configuration. */
+	config_purge(env, reset);
+	config_setreset(env, reset);
 
-	if (reset) {
-		/* Purge the configuration */
-		config_purge(env, reset);
-		config_setreset(env, reset);
-	} else {
-		/*
-		 * Load or reload the configuration.
-		 *
-		 * Reloading removes all non-running VMs before processing the
-		 * config file, whereas loading only adds to the existing list
-		 * of VMs.
-		 */
-
-		if (parse_config(filename) == -1) {
-			log_debug("%s: failed to load config file %s",
-			    __func__, filename);
-		}
+	if (parse_config(env->newd_conffile) == -1) {
+		log_debug("%s: failed to reload config file %s",
+		    __func__, filename);
 	}
 }
 
@@ -424,16 +401,4 @@ newd_show_info(struct privsep *ps, struct imsg *imsg)
 		log_debug("%s: error handling imsg", __func__);
 		break;
 	}
-}
-
-char *
-get_string(uint8_t *ptr, size_t len)
-{
-	size_t	 i;
-
-	for (i = 0; i < len; i++)
-		if (!isprint(ptr[i]))
-			break;
-
-	return strndup(ptr, i);
 }

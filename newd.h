@@ -40,7 +40,6 @@ enum imsg_type {
 	IMSG_NEWDOP_GET_INFO_CONTROL_DATA,
 	IMSG_NEWDOP_GET_INFO_CONTROL_END_DATA,
 	IMSG_NEWDOP_ADD_GROUP,
-	IMSG_NEWDOP_RELOAD
 };
 
 struct newd_control_info {
@@ -90,8 +89,7 @@ struct newd {
 };
 
 /* newd.c */
-void	 newd_reload(unsigned int, const char *);
-char	*get_string(uint8_t *, size_t);
+void	 newd_reload(int);
 
 /* engine.c */
 void	 engine(struct privsep *, struct privsep_proc *);

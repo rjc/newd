@@ -380,7 +380,6 @@ control_dispatch_imsg(int fd, short event, void *arg)
 				return;
 			}
 			break;
-		case IMSG_NEWDOP_RELOAD:
 		case IMSG_CTL_RESET:
 			proc_forward_imsg(ps, &imsg, PROC_PARENT, -1);
 			break;
