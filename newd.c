@@ -52,6 +52,7 @@ void	 newd_shutdown(void);
 int	 newd_control_run(void);
 int	 newd_dispatch_control(int, struct privsep_proc *, struct imsg *);
 int	 newd_dispatch_engine(int, struct privsep_proc *, struct imsg *);
+void	 newd_configure_engine(struct privsep *);
 
 void newd_show_info(struct privsep *, struct imsg *);
 
@@ -307,9 +308,6 @@ main(int argc, char **argv)
 int
 newd_configure(struct privsep *ps)
 {
-	struct newd_engine_info nei;
-	struct group	*g;
-
 	/*
 	 * pledge in the parent process:
 	 * stdio - for malloc and basic I/O including events.
@@ -333,21 +331,7 @@ newd_configure(struct privsep *ps)
 		exit(0);
 	}
 
-	/* Send configured groups to the engine. */
-	LIST_FOREACH(g, env->newd_groups, entry) {
-		memset(&nei, 0, sizeof(nei));
-		nei.yesno = g->newd_group_yesno;
-		nei.integer = g->newd_group_integer;
-		nei.group_v4_bits = g->newd_group_v4_bits;
-		nei.group_v6_bits = g->newd_group_v6_bits;
-		memcpy(&nei.name, g->newd_group_name, sizeof(nei.name));
-		memcpy(&nei.group_v4address, &g->newd_group_v4address,
-		    sizeof(nei.group_v4address));
-		memcpy(&nei.group_v6address, &g->newd_group_v6address,
-		    sizeof(nei.group_v6address));
-		proc_compose(ps, PROC_ENGINE, IMSG_NEWDOP_ADD_GROUP,
-		    &nei, sizeof(nei));
-	}
+	newd_configure_engine(ps);
 
 	return (0);
 }
@@ -357,16 +341,18 @@ newd_reload(int reset)
 {
 	const char *filename = env->newd_conffile;
 
-	log_debug("%s: reload config file %s", __func__, filename);
+	log_warnx("%s: reload config file %s", __func__, filename);
 
 	/* Purge the existing configuration. */
 	config_purge(env, reset);
 	config_setreset(env, reset);
 
 	if (parse_config(env->newd_conffile) == -1) {
-		log_debug("%s: failed to reload config file %s",
+		log_warnx("%s: failed to reload config file %s",
 		    __func__, filename);
 	}
+
+	newd_configure_engine(&env->newd_ps);
 }
 
 void
@@ -400,5 +386,28 @@ newd_show_info(struct privsep *ps, struct imsg *imsg)
 	default:
 		log_debug("%s: error handling imsg", __func__);
 		break;
+	}
+}
+
+void
+newd_configure_engine(struct privsep *ps)
+{
+	struct newd_engine_info nei;
+	struct group	*g;
+
+	/* Send configured groups to the engine. */
+	LIST_FOREACH(g, env->newd_groups, entry) {
+		memset(&nei, 0, sizeof(nei));
+		nei.yesno = g->newd_group_yesno;
+		nei.integer = g->newd_group_integer;
+		nei.group_v4_bits = g->newd_group_v4_bits;
+		nei.group_v6_bits = g->newd_group_v6_bits;
+		memcpy(&nei.name, g->newd_group_name, sizeof(nei.name));
+		memcpy(&nei.group_v4address, &g->newd_group_v4address,
+		    sizeof(nei.group_v4address));
+		memcpy(&nei.group_v6address, &g->newd_group_v6address,
+		    sizeof(nei.group_v6address));
+		proc_compose(ps, PROC_ENGINE, IMSG_NEWDOP_ADD_GROUP,
+		    &nei, sizeof(nei));
 	}
 }
