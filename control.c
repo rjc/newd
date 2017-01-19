@@ -52,6 +52,7 @@ void	 control_dispatch_imsg(int, short, void *);
 int	 control_dispatch_parent(int, struct privsep_proc *, struct imsg *);
 void	 control_imsg_forward(struct imsg *);
 void	 control_run(struct privsep *, struct privsep_proc *, void *);
+void	 control_show_info(struct privsep *, struct imsg *);
 
 static struct privsep_proc procs[] = {
 	{ "parent",	PROC_PARENT,	control_dispatch_parent }
@@ -360,9 +361,11 @@ control_dispatch_imsg(int fd, short event, void *arg)
 
 			proc_forward_imsg(ps, &imsg, PROC_PARENT, -1);
 			break;
+		case IMSG_NEWDOP_GET_INFO_CONTROL_REQUEST:
+			control_show_info(ps, &imsg);
+			break;
 		case IMSG_NEWDOP_GET_INFO_PARENT_REQUEST:
 		case IMSG_NEWDOP_GET_INFO_ENGINE_REQUEST:
-		case IMSG_NEWDOP_GET_INFO_CONTROL_REQUEST:
 			imsg.hdr.peerid = fd;
 
 			if (proc_compose_imsg(ps, PROC_PARENT, -1,
@@ -406,4 +409,27 @@ control_imsg_forward(struct imsg *imsg)
 			imsg_compose_event(&c->iev, imsg->hdr.type,
 			    imsg->hdr.peerid, imsg->hdr.pid, -1, imsg->data,
 			    imsg->hdr.len - IMSG_HEADER_SIZE);
+}
+
+void
+control_show_info(struct privsep *ps, struct imsg *imsg)
+{
+	char filter[NEWD_MAXGROUPNAME];
+	struct newd_control_info nci;
+
+	switch (imsg->hdr.type) {
+	case IMSG_NEWDOP_GET_INFO_CONTROL_REQUEST:
+			if (proc_compose_imsg(ps, PROC_PARENT, -1,
+			    IMSG_NEWDOP_GET_INFO_CONTROL_DATA, imsg->hdr.peerid,
+			    -1, &nci, sizeof(nci)) == -1)
+				return;
+		if (proc_compose_imsg(ps, PROC_PARENT, -1,
+		    IMSG_NEWDOP_GET_INFO_CONTROL_END_DATA, imsg->hdr.peerid,
+			    -1, &nci, sizeof(nci)) == -1)
+				return;
+		break;
+	default:
+		log_debug("%s: error handling imsg", __func__);
+		break;
+	}
 }
