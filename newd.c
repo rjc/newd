@@ -122,7 +122,6 @@ int
 newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 {
 	struct privsep		*ps = p->p_ps;
-	int			 res = 0;
 
 	switch (imsg->hdr.type) {
 	case IMSG_NEWDOP_GET_INFO_ENGINE_DATA:

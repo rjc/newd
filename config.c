@@ -66,9 +66,16 @@ void
 config_purge(struct newd *env, unsigned int reset)
 {
 	struct privsep		*ps = &env->newd_ps;
+	struct group		*g;
 	unsigned int		 what;
 
-	what = ps->ps_what[privsep_process] & reset;
+	what = ps->ps_what[privsep_process];
+	if (what & CONFIG_GROUPS) {
+		while ((g = LIST_FIRST(env->newd_groups)) != NULL) {
+			LIST_REMOVE(g, entry);
+			free(g);
+		}
+	}
 }
 
 int
