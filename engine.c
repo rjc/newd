@@ -86,10 +86,29 @@ int
 engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 {
 	struct privsep		*ps = p->p_ps;
+	struct newd_engine_info	 nei;
+	struct group		*g;
 	int			 res = 0, cmd = 0, verbose;
 	unsigned int		 mode;
 
 	switch (imsg->hdr.type) {
+	case IMSG_NEWDOP_ADD_GROUP:
+		IMSG_SIZE_CHECK(imsg, &nei);
+		memcpy(&nei, imsg->data, sizeof(nei));
+		g = calloc(1, sizeof(*g));
+		g->newd_group_yesno = nei.yesno;
+		g->newd_group_integer = nei.integer;
+		g->newd_group_v4_bits = nei.group_v4_bits;
+		g->newd_group_v6_bits = nei.group_v6_bits;
+		memcpy(g->newd_group_name, nei.name,
+		    sizeof(g->newd_group_name));
+		memcpy(&g->newd_group_v4address, &nei.group_v4address,
+		    sizeof(g->newd_group_v4address));
+		memcpy(&g->newd_group_v6address, &nei.group_v6address,
+		    sizeof(g->newd_group_v6address));
+		LIST_INSERT_HEAD(env->newd_groups, g, entry);
+		log_warnx("Engine added group '%s'", g->newd_group_name);
+		break;
 	case IMSG_NEWDOP_GET_INFO_ENGINE_REQUEST:
 		engine_show_info(ps, imsg);
 		cmd = IMSG_NEWDOP_GET_INFO_ENGINE_END_DATA;

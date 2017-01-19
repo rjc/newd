@@ -46,7 +46,7 @@
 __dead void usage(void);
 
 int	 main(int, char **);
-int	 newd_configure(void);
+int	 newd_configure(struct privsep *);
 void	 newd_sighdlr(int sig, short event, void *arg);
 void	 newd_shutdown(void);
 int	 newd_control_run(void);
@@ -134,6 +134,9 @@ newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 		 * kernel id to indicate that they are not running.
 		 */
 		IMSG_SIZE_CHECK(imsg, &res);
+		proc_forward_imsg(ps, imsg, PROC_CONTROL, -1);
+		break;
+	case IMSG_NEWDOP_ADD_GROUP:
 		proc_forward_imsg(ps, imsg, PROC_CONTROL, -1);
 		break;
 	default:
@@ -305,7 +308,7 @@ main(int argc, char **argv)
 	if (!env->newd_noaction)
 		proc_connect(ps);
 
-	if (newd_configure() == -1)
+	if (newd_configure(ps) == -1)
 		fatalx("configuration failed");
 
 	event_dispatch();
@@ -316,7 +319,7 @@ main(int argc, char **argv)
 }
 
 int
-newd_configure(void)
+newd_configure(struct privsep *ps)
 {
 	struct newd_engine_info nei;
 	struct group	*g;
@@ -356,6 +359,8 @@ newd_configure(void)
 		    sizeof(nei.group_v4address));
 		memcpy(&nei.group_v6address, &g->newd_group_v6address,
 		    sizeof(nei.group_v6address));
+		proc_compose(ps, PROC_ENGINE, IMSG_NEWDOP_ADD_GROUP,
+		    &nei, sizeof(nei));
 	}
 
 	return (0);
