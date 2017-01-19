@@ -95,6 +95,9 @@ control_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 		imsg_compose_event(&c->iev, imsg->hdr.type,
 		    0, 0, -1, imsg->data, IMSG_DATA_SIZE(imsg));
 		break;
+	case IMSG_CTL_RESET:
+		/* We don't have anything to do to reset. */
+		break;
 	default:
 		return (-1);
 	}
