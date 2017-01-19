@@ -46,6 +46,7 @@ enum imsg_type {
 struct newd_control_info {
 	int		yesno;
 	int		integer;
+	int		verbose;
 	char		global_text[NEWD_MAXTEXT];
 };
 
@@ -53,6 +54,7 @@ struct newd_engine_info {
 	char		name[NEWD_MAXGROUPNAME];
 	int		yesno;
 	int		integer;
+	int		verbose;
 	int		group_v4_bits;
 	int		group_v6_bits;
 	struct in_addr	group_v4address;
@@ -60,6 +62,7 @@ struct newd_engine_info {
 };
 
 struct newd_parent_info {
+	int		verbose;
 	char		text[NEWD_MAXTEXT];
 };
 
