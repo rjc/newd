@@ -312,12 +312,10 @@ newd_configure(struct privsep *ps)
 	 * pledge in the parent process:
 	 * stdio - for malloc and basic I/O including events.
 	 * rpath - for reload to open and read the configuration files.
-	 * wpath - for opening disk images and tap devices.
-	 * tty - for openpty.
 	 * proc - run kill to terminate its children safely.
 	 * sendfd - for disks, interfaces and other fds.
 	 */
-	if (pledge("stdio rpath wpath proc tty sendfd", NULL) == -1)
+	if (pledge("stdio rpath proc sendfd", NULL) == -1)
 		fatal("pledge");
 
 	if (parse_config(env->newd_conffile) == -1) {
