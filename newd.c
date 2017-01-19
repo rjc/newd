@@ -395,7 +395,7 @@ newd_show_info(struct privsep *ps, struct imsg *imsg)
 	switch (imsg->hdr.type) {
 	case IMSG_NEWDOP_GET_INFO_PARENT_REQUEST:
 		npi.verbose = env->newd_verbose;
-		memcpy(npi.text, env->newd_global_text, sizeof(npi.verbose));
+		memcpy(npi.text, env->newd_global_text, sizeof(npi.text));
 		if (proc_compose_imsg(ps, PROC_CONTROL, -1,
 		    IMSG_NEWDOP_GET_INFO_PARENT_DATA, imsg->hdr.peerid,
 		    -1, &npi, sizeof(npi)) == -1)
