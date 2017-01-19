@@ -318,6 +318,9 @@ main(int argc, char **argv)
 int
 newd_configure(void)
 {
+	struct newd_engine_info nei;
+	struct group	*g;
+
 	/*
 	 * pledge in the parent process:
 	 * stdio - for malloc and basic I/O including events.
@@ -339,6 +342,20 @@ newd_configure(void)
 		fprintf(stderr, "configuration OK\n");
 		proc_kill(&env->newd_ps);
 		exit(0);
+	}
+
+	/* Send configured groups to the engine. */
+	LIST_FOREACH(g, env->newd_groups, entry) {
+		memset(&nei, 0, sizeof(nei));
+		nei.yesno = g->newd_group_yesno;
+		nei.integer = g->newd_group_integer;
+		nei.group_v4_bits = g->newd_group_v4_bits;
+		nei.group_v6_bits = g->newd_group_v6_bits;
+		memcpy(&nei.name, g->newd_group_name, sizeof(nei.name));
+		memcpy(&nei.group_v4address, &g->newd_group_v4address,
+		    sizeof(nei.group_v4address));
+		memcpy(&nei.group_v6address, &g->newd_group_v6address,
+		    sizeof(nei.group_v6address));
 	}
 
 	return (0);

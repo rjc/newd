@@ -619,7 +619,7 @@ parse_config(const char *filename)
 	}
 	topfile = file;
 
-	LIST_INIT(&env->newd_group_list);
+	LIST_INIT(env->newd_groups);
 
 	yyparse();
 	errors = file->errors;
@@ -726,7 +726,7 @@ conf_get_group(char *name)
 	struct group	*g;
 	size_t		n;
 
-	LIST_FOREACH(g, &env->newd_group_list, entry) {
+	LIST_FOREACH(g, env->newd_groups, entry) {
 		if (strcmp(name, g->newd_group_name) == 0)
 			return (g);
 	}
@@ -742,7 +742,7 @@ conf_get_group(char *name)
 	g->newd_group_yesno = env->newd_yesno;
 	g->newd_group_integer = env->newd_integer;
 
-	LIST_INSERT_HEAD(&env->newd_group_list, g, entry);
+	LIST_INSERT_HEAD(env->newd_groups, g, entry);
 
 	return (g);
 }
@@ -752,7 +752,7 @@ clear_config(struct newd *xconf)
 {
 	struct group	*g;
 
-	while ((g = LIST_FIRST(&xconf->newd_group_list)) != NULL) {
+	while ((g = LIST_FIRST(xconf->newd_groups)) != NULL) {
 		LIST_REMOVE(g, entry);
 		free(g);
 	}

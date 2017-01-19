@@ -154,7 +154,7 @@ engine_show_info(struct privsep *ps, struct imsg *imsg)
 	switch (imsg->hdr.type) {
 	case IMSG_NEWDOP_GET_INFO_ENGINE_REQUEST:
 		memcpy(filter, imsg->data, sizeof(filter));
-		LIST_FOREACH(g, &env->newd_group_list, entry) {
+		LIST_FOREACH(g, env->newd_groups, entry) {
 			if (filter[0] == '\0' || memcmp(filter,
 			    g->newd_group_name, sizeof(filter)) == 0) {
 				memcpy(nei.name, g->newd_group_name,

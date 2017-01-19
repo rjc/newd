@@ -83,8 +83,7 @@ enum privsep_procid {
 } privsep_process;
 
 #define CONFIG_RELOAD		0x00
-#define CONFIG_VMS		0x01
-#define CONFIG_SWITCHES		0x02
+#define CONFIG_GROUPS		0x01
 #define CONFIG_ALL		0xff
 
 struct privsep_pipes {

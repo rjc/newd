@@ -46,12 +46,18 @@ config_init(struct newd *env)
 	struct privsep	*ps = &env->newd_ps;
 	unsigned int	 what;
 
-	/* Global configuration */
+	/* Global configuration. */
 	ps->ps_what[PROC_PARENT] = CONFIG_ALL;
-	ps->ps_what[PROC_ENGINE] = CONFIG_VMS;
+	ps->ps_what[PROC_ENGINE] = CONFIG_GROUPS;
 
-	/* Other configuration */
+	/* Other configuration. */
 	what = ps->ps_what[privsep_process];
+	if (what & CONFIG_GROUPS) {
+		env->newd_groups = calloc(1, sizeof(*env->newd_groups));
+		if (env->newd_groups == NULL)
+			return (-1);
+		LIST_INIT(env->newd_groups);
+	}
 
 	return (0);
 }

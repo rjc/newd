@@ -49,7 +49,7 @@ print_config(struct newd *conf)
 	printf("\n");
 
 
-	LIST_FOREACH(g, &conf->newd_group_list, entry) {
+	LIST_FOREACH(g, conf->newd_groups, entry) {
 		printf("group %s {\n", g->newd_group_name);
 
 		printf("\tyesno %s\n", g->newd_group_yesno ? "yes" : "no");

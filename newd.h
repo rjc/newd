@@ -39,6 +39,7 @@ enum imsg_type {
 	IMSG_NEWDOP_GET_INFO_CONTROL_REQUEST,
 	IMSG_NEWDOP_GET_INFO_CONTROL_DATA,
 	IMSG_NEWDOP_GET_INFO_CONTROL_END_DATA,
+	IMSG_NEWDOP_ADD_GROUP,
 	IMSG_NEWDOP_LOAD,
 	IMSG_NEWDOP_RELOAD
 };
@@ -73,6 +74,7 @@ struct group {
 	struct in_addr	newd_group_v4address;
 	struct in6_addr	newd_group_v6address;
 };
+LIST_HEAD(grouplist, group);
 
 struct newd {
 	struct privsep		 newd_ps;
@@ -85,7 +87,7 @@ struct newd {
 	int			 newd_yesno;
 	int			 newd_integer;
 	char			 newd_global_text[NEWD_MAXTEXT];
-	LIST_HEAD(, group)	 newd_group_list;
+	struct grouplist	*newd_groups;
 };
 
 /* newd.c */
