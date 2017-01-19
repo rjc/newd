@@ -126,14 +126,9 @@ newd_dispatch_engine(int fd, struct privsep_proc *p, struct imsg *imsg)
 
 	switch (imsg->hdr.type) {
 	case IMSG_NEWDOP_GET_INFO_ENGINE_DATA:
+		proc_forward_imsg(ps, imsg, PROC_CONTROL, -1);
 		break;
 	case IMSG_NEWDOP_GET_INFO_ENGINE_END_DATA:
-		/*
-		 * PROC_ENGINE has responded with the *running* VMs, now we
-		 * append the others. These use the special value 0 for their
-		 * kernel id to indicate that they are not running.
-		 */
-		IMSG_SIZE_CHECK(imsg, &res);
 		proc_forward_imsg(ps, imsg, PROC_CONTROL, -1);
 		break;
 	case IMSG_NEWDOP_ADD_GROUP:

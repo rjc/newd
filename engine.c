@@ -189,11 +189,12 @@ engine_show_info(struct privsep *ps, struct imsg *imsg)
 				memcpy(&nei.group_v6address,
 				    &g->newd_group_v6address,
 				    sizeof(nei.group_v6address));
+				if (proc_compose_imsg(ps, PROC_PARENT, -1,
+				    IMSG_NEWDOP_GET_INFO_ENGINE_DATA,
+				    imsg->hdr.peerid, -1, &nei,
+				    sizeof(nei)) == -1)
+					return;
 			}
-			if (proc_compose_imsg(ps, PROC_PARENT, -1,
-			    IMSG_NEWDOP_GET_INFO_ENGINE_DATA, imsg->hdr.peerid,
-			    -1, &nei, sizeof(nei)) == -1)
-				return;
 		}
 		if (proc_compose_imsg(ps, PROC_PARENT, -1,
 		    IMSG_NEWDOP_GET_INFO_ENGINE_END_DATA, imsg->hdr.peerid,
