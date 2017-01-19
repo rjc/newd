@@ -48,6 +48,7 @@
 void engine_sighdlr(int, short, void *);
 int engine_dispatch_parent(int, struct privsep_proc *, struct imsg *);
 void engine_run(struct privsep *, struct privsep_proc *, void *);
+void engine_show_info(struct privsep *, struct imsg *);
 
 extern struct newd *env;
 
@@ -90,7 +91,7 @@ engine_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 
 	switch (imsg->hdr.type) {
 	case IMSG_NEWDOP_GET_INFO_ENGINE_REQUEST:
-		res = 0;
+		engine_show_info(ps, imsg);
 		cmd = IMSG_NEWDOP_GET_INFO_ENGINE_END_DATA;
 		break;
 	case IMSG_CTL_RESET:
@@ -141,4 +142,47 @@ engine_sighdlr(int sig, short event, void *arg)
 void
 engine_shutdown(void)
 {
+}
+
+void
+engine_show_info(struct privsep *ps, struct imsg *imsg)
+{
+	char filter[NEWD_MAXGROUPNAME];
+	struct newd_engine_info nei;
+	struct group *g;
+
+	switch (imsg->hdr.type) {
+	case IMSG_NEWDOP_GET_INFO_ENGINE_REQUEST:
+		memcpy(filter, imsg->data, sizeof(filter));
+		LIST_FOREACH(g, &env->newd_group_list, entry) {
+			if (filter[0] == '\0' || memcmp(filter,
+			    g->newd_group_name, sizeof(filter)) == 0) {
+				memcpy(nei.name, g->newd_group_name,
+				    sizeof(nei.name));
+				nei.yesno = g->newd_group_yesno;
+				nei.integer = g->newd_group_integer;
+				nei.verbose = log_getverbose();
+				nei.group_v4_bits = g->newd_group_v4_bits;
+				nei.group_v6_bits = g->newd_group_v6_bits;
+				memcpy(&nei.group_v4address,
+				    &g->newd_group_v4address,
+				    sizeof(nei.group_v4address));
+				memcpy(&nei.group_v6address,
+				    &g->newd_group_v6address,
+				    sizeof(nei.group_v6address));
+			}
+			if (proc_compose_imsg(ps, PROC_PARENT, -1,
+			    IMSG_NEWDOP_GET_INFO_ENGINE_DATA, imsg->hdr.peerid,
+			    -1, &nei, sizeof(nei)) == -1)
+				return;
+		}
+		if (proc_compose_imsg(ps, PROC_PARENT, -1,
+		    IMSG_NEWDOP_GET_INFO_ENGINE_END_DATA, imsg->hdr.peerid,
+			    -1, &nei, sizeof(nei)) == -1)
+				return;
+		break;
+	default:
+		log_debug("%s: error handling imsg", __func__);
+		break;
+	}
 }

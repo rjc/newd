@@ -53,6 +53,8 @@ int	 newd_control_run(void);
 int	 newd_dispatch_control(int, struct privsep_proc *, struct imsg *);
 int	 newd_dispatch_engine(int, struct privsep_proc *, struct imsg *);
 
+void newd_show_info(struct privsep *, struct imsg *);
+
 struct newd	*env;
 
 static struct privsep_proc procs[] = {
@@ -78,6 +80,7 @@ newd_dispatch_control(int fd, struct privsep_proc *p, struct imsg *imsg)
 		proc_forward_imsg(ps, imsg, PROC_ENGINE, -1);
 		break;
 	case IMSG_NEWDOP_GET_INFO_PARENT_REQUEST:
+		newd_show_info(ps, imsg);
 		break;
 	case IMSG_NEWDOP_LOAD:
 		IMSG_SIZE_CHECK(imsg, str); /* at least one byte for path */
@@ -382,6 +385,30 @@ newd_shutdown(void)
 
 	log_warnx("parent terminating");
 	exit(0);
+}
+
+void
+newd_show_info(struct privsep *ps, struct imsg *imsg)
+{
+	struct newd_parent_info	npi;
+
+	switch (imsg->hdr.type) {
+	case IMSG_NEWDOP_GET_INFO_PARENT_REQUEST:
+		npi.verbose = env->newd_verbose;
+		memcpy(npi.text, env->newd_global_text, sizeof(npi.verbose));
+		if (proc_compose_imsg(ps, PROC_CONTROL, -1,
+		    IMSG_NEWDOP_GET_INFO_PARENT_DATA, imsg->hdr.peerid,
+		    -1, &npi, sizeof(npi)) == -1)
+			return;
+		if (proc_compose_imsg(ps, PROC_CONTROL, -1,
+		    IMSG_NEWDOP_GET_INFO_PARENT_END_DATA, imsg->hdr.peerid,
+		    -1, &npi, sizeof(npi)) == -1)
+			return;
+		break;
+	default:
+		log_debug("%s: error handling imsg", __func__);
+		break;
+	}
 }
 
 char *
