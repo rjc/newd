@@ -44,10 +44,7 @@ enum imsg_type {
 };
 
 struct newd_control_info {
-	int		yesno;
-	int		integer;
 	int		verbose;
-	char		global_text[NEWD_MAXTEXT];
 };
 
 struct newd_engine_info {
