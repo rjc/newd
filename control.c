@@ -32,6 +32,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "log.h"
 #include "newd.h"
 #include "control.h"
 #include "frontend.h"

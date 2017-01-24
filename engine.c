@@ -35,6 +35,7 @@
 #include <pwd.h>
 #include <unistd.h>
 
+#include "log.h"
 #include "newd.h"
 #include "engine.h"
 

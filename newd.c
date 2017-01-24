@@ -37,6 +37,7 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include "log.h"
 #include "newd.h"
 #include "frontend.h"
 #include "engine.h"
