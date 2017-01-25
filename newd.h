@@ -27,6 +27,8 @@
 
 #define NEWD_MAXTEXT		256
 #define NEWD_MAXGROUPNAME	16
+#define	NEWD_MAX_RTSOCK_BUF	128 * 1024
+#define NEWD_RT_BUF_SIZE	16384
 
 static const char * const log_procnames[] = {
 	"main",
@@ -52,7 +54,8 @@ enum imsg_type {
 	IMSG_RECONF_CONF,
 	IMSG_RECONF_GROUP,
 	IMSG_RECONF_END,
-	IMSG_SOCKET_IPC
+	IMSG_SOCKET_IPC,
+	IMSG_SEND_PROPOSAL
 };
 
 enum {
@@ -99,6 +102,23 @@ struct ctl_main_info {
 	char		text[NEWD_MAXTEXT];
 };
 
+struct imsg_proposal {
+	uint8_t		rtstatic[128];
+	uint8_t		rtsearch[128];
+	struct in_addr	gateway;
+	struct in_addr	ifa;
+	struct in_addr	mask;
+	struct in_addr	dns1;
+	struct in_addr	dns2;
+	struct in_addr	dns3;
+	struct in_addr	dns4;
+	int		mtu;
+	int		addrs;
+	int		inits;
+	int		flags;
+	int		rtsearch_encoded;
+};
+
 extern uint32_t	 cmd_opts;
 extern char	*csock;
 
@@ -119,3 +139,6 @@ void	print_config(struct newd_conf *);
 /* parse.y */
 struct newd_conf	*parse_config(char *);
 int			 cmdline_symset(char *);
+
+/* kroute.c */
+int	kr_init(void);

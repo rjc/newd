@@ -284,6 +284,9 @@ engine_dispatch_main(int fd, short event, void *bula)
 			merge_config(engine_conf, nconf);
 			nconf = NULL;
 			break;
+		case IMSG_SEND_PROPOSAL:
+			log_warnx("The engine gets a proposal!");
+			break;
 		default:
 			log_debug("%s: unexpected imsg %d", __func__,
 			    imsg.hdr.type);
