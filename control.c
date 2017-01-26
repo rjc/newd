@@ -33,7 +33,7 @@
 #include <unistd.h>
 
 #include "log.h"
-#include "newd.h"
+#include "netcfgd.h"
 #include "control.h"
 #include "frontend.h"
 

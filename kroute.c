@@ -40,7 +40,7 @@
 #include <limits.h>
 
 #include "log.h"
-#include "newd.h"
+#include "netcfgd.h"
 
 struct {
 	pid_t			pid;
@@ -83,7 +83,7 @@ kr_init(void)
 	    &default_rcvbuf, &optlen) == -1)
 		log_warn("kr_init getsockopt SOL_SOCKET SO_RCVBUF");
 	else
-		for (rcvbuf = NEWD_MAX_RTSOCK_BUF;
+		for (rcvbuf = NETCFGD_MAX_RTSOCK_BUF;
 		    rcvbuf > default_rcvbuf &&
 		    setsockopt(kr_state.fd, SOL_SOCKET, SO_RCVBUF,
 		    &rcvbuf, sizeof(rcvbuf)) == -1 && errno == ENOBUFS;
@@ -103,7 +103,7 @@ kr_init(void)
 void
 kr_dispatch_msg(int fd, short event, void *bula)
 {
-	char			 buf[NEWD_RT_BUF_SIZE];
+	char			 buf[NETCFGD_RT_BUF_SIZE];
 	struct rt_msghdr	*rtm;
 	struct sockaddr		*sa, *rti_info[RTAX_MAX];
 	char			*next;

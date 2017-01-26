@@ -45,7 +45,7 @@
 #include <unistd.h>
 
 #include "log.h"
-#include "newd.h"
+#include "netcfgd.h"
 #include "frontend.h"
 
 TAILQ_HEAD(files, file)		 files = TAILQ_HEAD_INITIALIZER(files);
@@ -82,10 +82,10 @@ struct sym {
 int	 symset(const char *, const char *, int);
 char	*symget(const char *);
 
-void	 clear_config(struct newd_conf *xconf);
+void	 clear_config(struct netcfgd_conf *xconf);
 
-static struct newd_conf	*conf;
-static int		 errors;
+static struct netcfgd_conf	*conf;
+static int			 errors;
 
 static struct group	*group;
 
@@ -607,7 +607,7 @@ popfile(void)
 	return (file ? 0 : EOF);
 }
 
-struct newd_conf *
+struct netcfgd_conf *
 parse_config(char *filename)
 {
 	struct sym	*sym, *next;
@@ -752,7 +752,7 @@ conf_get_group(char *name)
 }
 
 void
-clear_config(struct newd_conf *xconf)
+clear_config(struct netcfgd_conf *xconf)
 {
 	struct group	*g;
 

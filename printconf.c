@@ -28,10 +28,10 @@
 #include <imsg.h>
 #include <stdio.h>
 
-#include "newd.h"
+#include "netcfgd.h"
 
 void
-print_config(struct newd_conf *conf)
+print_config(struct netcfgd_conf *conf)
 {
 	struct group *g;
 	char buf[INET6_ADDRSTRLEN], *bufp;

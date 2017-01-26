@@ -36,7 +36,7 @@
 #include <unistd.h>
 
 #include "log.h"
-#include "newd.h"
+#include "netcfgd.h"
 #include "engine.h"
 
 __dead void	 engine_shutdown(void);
@@ -45,7 +45,7 @@ void		 engine_dispatch_frontend(int, short, void *);
 void		 engine_dispatch_main(int, short, void *);
 void		 engine_showinfo_ctl(struct imsg *);
 
-struct newd_conf	*engine_conf;
+struct netcfgd_conf	*engine_conf;
 struct imsgev		*iev_frontend;
 struct imsgev		*iev_main;
 
@@ -77,7 +77,7 @@ engine(int debug, int verbose)
 	log_init(debug, LOG_DAEMON);
 	log_setverbose(verbose);
 
-	if ((pw = getpwnam(NEWD_USER)) == NULL)
+	if ((pw = getpwnam(NETCFGD_USER)) == NULL)
 		fatal("getpwnam");
 
 	if (chroot(pw->pw_dir) == -1)
@@ -85,9 +85,9 @@ engine(int debug, int verbose)
 	if (chdir("/") == -1)
 		fatal("chdir(\"/\")");
 
-	newd_process = PROC_ENGINE;
-	setproctitle(log_procnames[newd_process]);
-	log_procinit(log_procnames[newd_process]);
+	netcfgd_process = PROC_ENGINE;
+	setproctitle(log_procnames[netcfgd_process]);
+	log_procinit(log_procnames[netcfgd_process]);
 
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
@@ -209,7 +209,7 @@ engine_dispatch_frontend(int fd, short event, void *bula)
 void
 engine_dispatch_main(int fd, short event, void *bula)
 {
-	static struct newd_conf	*nconf;
+	static struct netcfgd_conf	*nconf;
 	struct imsg		 imsg;
 	struct group		*g;
 	struct imsgev		*iev = bula;
@@ -269,9 +269,9 @@ engine_dispatch_main(int fd, short event, void *bula)
 			event_add(&iev_frontend->ev, NULL);
 			break;
 		case IMSG_RECONF_CONF:
-			if ((nconf = malloc(sizeof(struct newd_conf))) == NULL)
+			if ((nconf = malloc(sizeof(struct netcfgd_conf))) == NULL)
 				fatal(NULL);
-			memcpy(nconf, imsg.data, sizeof(struct newd_conf));
+			memcpy(nconf, imsg.data, sizeof(struct netcfgd_conf));
 			LIST_INIT(&nconf->group_list);
 			break;
 		case IMSG_RECONF_GROUP:
@@ -306,7 +306,7 @@ engine_dispatch_main(int fd, short event, void *bula)
 void
 engine_showinfo_ctl(struct imsg *imsg)
 {
-	char filter[NEWD_MAXGROUPNAME];
+	char filter[NETCFGD_MAXGROUPNAME];
 	struct ctl_engine_info cei;
 	struct group *g;
 

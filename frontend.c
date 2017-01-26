@@ -36,14 +36,14 @@
 #include <unistd.h>
 
 #include "log.h"
-#include "newd.h"
+#include "netcfgd.h"
 #include "frontend.h"
 #include "control.h"
 
 __dead void	 frontend_shutdown(void);
 void		 frontend_sig_handler(int, short, void *);
 
-struct newd_conf	*frontend_conf;
+struct netcfgd_conf	*frontend_conf;
 struct imsgev		*iev_main;
 struct imsgev		*iev_engine;
 char			*csock;
@@ -76,12 +76,12 @@ frontend(int debug, int verbose, char *sockname)
 	log_init(debug, LOG_DAEMON);
 	log_setverbose(verbose);
 
-	/* Create newd control socket outside chroot. */
+	/* Create netcfgd control socket outside chroot. */
 	csock = strdup(sockname);
 	if (control_init(csock) == -1)
 		fatalx("control socket setup failed");
 
-	if ((pw = getpwnam(NEWD_USER)) == NULL)
+	if ((pw = getpwnam(NETCFGD_USER)) == NULL)
 		fatal("getpwnam");
 
 	if (chroot(pw->pw_dir) == -1)
@@ -89,9 +89,9 @@ frontend(int debug, int verbose, char *sockname)
 	if (chdir("/") == -1)
 		fatal("chdir(\"/\")");
 
-	newd_process = PROC_FRONTEND;
-	setproctitle(log_procnames[newd_process]);
-	log_procinit(log_procnames[newd_process]);
+	netcfgd_process = PROC_FRONTEND;
+	setproctitle(log_procnames[netcfgd_process]);
+	log_procinit(log_procnames[netcfgd_process]);
 
 	if (setgroups(1, &pw->pw_gid) ||
 	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
@@ -170,7 +170,7 @@ frontend_imsg_compose_engine(int type, uint32_t peerid, pid_t pid,
 void
 frontend_dispatch_main(int fd, short event, void *bula)
 {
-	static struct newd_conf	*nconf;
+	static struct netcfgd_conf	*nconf;
 	struct imsg		 imsg;
 	struct group		*g;
 	struct imsgev		*iev = bula;
@@ -227,10 +227,10 @@ frontend_dispatch_main(int fd, short event, void *bula)
 			event_add(&iev_engine->ev, NULL);
 			break;
 		case IMSG_RECONF_CONF:
-			if ((nconf = malloc(sizeof(struct newd_conf))) ==
+			if ((nconf = malloc(sizeof(struct netcfgd_conf))) ==
 			    NULL)
 				fatal(NULL);
-			memcpy(nconf, imsg.data, sizeof(struct newd_conf));
+			memcpy(nconf, imsg.data, sizeof(struct netcfgd_conf));
 			LIST_INIT(&nconf->group_list);
 			break;
 		case IMSG_RECONF_GROUP:

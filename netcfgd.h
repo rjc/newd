@@ -17,18 +17,18 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define CONF_FILE		"/etc/newd.conf"
-#define	NEWD_SOCKET		"/var/run/newd.sock"
-#define NEWD_USER		"_newd"
+#define CONF_FILE		"/etc/netcfgd.conf"
+#define	NETCFGD_SOCKET		"/var/run/netcfgd.sock"
+#define NETCFGD_USER		"_netcfgd"
 
 #define OPT_VERBOSE	0x00000001
 #define OPT_VERBOSE2	0x00000002
 #define OPT_NOACTION	0x00000004
 
-#define NEWD_MAXTEXT		256
-#define NEWD_MAXGROUPNAME	16
-#define	NEWD_MAX_RTSOCK_BUF	128 * 1024
-#define NEWD_RT_BUF_SIZE	16384
+#define NETCFGD_MAXTEXT		256
+#define NETCFGD_MAXGROUPNAME	16
+#define	NETCFGD_MAX_RTSOCK_BUF	128 * 1024
+#define NETCFGD_RT_BUF_SIZE	16384
 
 static const char * const log_procnames[] = {
 	"main",
@@ -62,11 +62,11 @@ enum {
 	PROC_MAIN,
 	PROC_ENGINE,
 	PROC_FRONTEND
-} newd_process;
+} netcfgd_process;
 
 struct group {
 	LIST_ENTRY(group)	 entry;
-	char		name[NEWD_MAXGROUPNAME];
+	char		name[NETCFGD_MAXGROUPNAME];
 	int		yesno;
 	int		integer;
 	int		group_v4_bits;
@@ -75,21 +75,21 @@ struct group {
 	struct in6_addr	group_v6address;
 };
 
-struct newd_conf {
+struct netcfgd_conf {
 	int		yesno;
 	int		integer;
-	char		global_text[NEWD_MAXTEXT];
+	char		global_text[NETCFGD_MAXTEXT];
 	LIST_HEAD(, group)	group_list;
 };
 
 struct ctl_frontend_info {
 	int		yesno;
 	int		integer;
-	char		global_text[NEWD_MAXTEXT];
+	char		global_text[NETCFGD_MAXTEXT];
 };
 
 struct ctl_engine_info {
-	char		name[NEWD_MAXGROUPNAME];
+	char		name[NETCFGD_MAXGROUPNAME];
 	int		yesno;
 	int		integer;
 	int		group_v4_bits;
@@ -99,7 +99,7 @@ struct ctl_engine_info {
 };
 
 struct ctl_main_info {
-	char		text[NEWD_MAXTEXT];
+	char		text[NETCFGD_MAXTEXT];
 };
 
 struct imsg_proposal {
@@ -122,22 +122,22 @@ struct imsg_proposal {
 extern uint32_t	 cmd_opts;
 extern char	*csock;
 
-/* newd.c */
+/* netcfgd.c */
 void	main_imsg_compose_frontend(int, pid_t, void *, uint16_t);
 void	main_imsg_compose_engine(int, pid_t, void *, uint16_t);
-void	merge_config(struct newd_conf *, struct newd_conf *);
+void	merge_config(struct netcfgd_conf *, struct netcfgd_conf *);
 void	imsg_event_add(struct imsgev *);
 int	imsg_compose_event(struct imsgev *, uint16_t, uint32_t, pid_t,
 	    int, void *, uint16_t);
 
-struct newd_conf       *config_new_empty(void);
-void			config_clear(struct newd_conf *);
+struct netcfgd_conf       *config_new_empty(void);
+void			config_clear(struct netcfgd_conf *);
 
 /* printconf.c */
-void	print_config(struct newd_conf *);
+void	print_config(struct netcfgd_conf *);
 
 /* parse.y */
-struct newd_conf	*parse_config(char *);
+struct netcfgd_conf	*parse_config(char *);
 int			 cmdline_symset(char *);
 
 /* kroute.c */

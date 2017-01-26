@@ -1,9 +1,9 @@
 #	$OpenBSD$
 
-PROG=	newd
-SRCS=	control.c engine.c frontend.c kroute.c log.c newd.c parse.y printconf.c
+PROG=	netcfgd
+SRCS=	control.c engine.c frontend.c kroute.c log.c netcfgd.c parse.y printconf.c
 
-MAN=	newd.8 newd.conf.5
+MAN=	netcfgd.8 netcfgd.conf.5
 
 CFLAGS+= -Wall -I${.CURDIR}
 CFLAGS+= -Wstrict-prototypes -Wmissing-prototypes
