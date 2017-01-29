@@ -112,6 +112,8 @@ struct imsg_proposal {
 	struct in_addr	dns2;
 	struct in_addr	dns3;
 	struct in_addr	dns4;
+	int		xid;
+	int		index;
 	int		mtu;
 	int		addrs;
 	int		inits;

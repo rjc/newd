@@ -179,6 +179,8 @@ forward_proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	proposal.addrs = rtm->rtm_addrs;
 	proposal.inits = rtm->rtm_inits;
 	proposal.flags = rtm->rtm_flags;
+	proposal.xid = rtm->rtm_seq;
+	proposal.index = rtm->rtm_index;
 
 	if (proposal.inits & RTV_MTU) {
 		proposal.mtu = rtm->rtm_rmx.rmx_mtu;
