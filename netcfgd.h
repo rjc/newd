@@ -88,16 +88,6 @@ struct ctl_frontend_info {
 	char		global_text[NETCFGD_MAXTEXT];
 };
 
-struct ctl_engine_info {
-	char		name[NETCFGD_MAXGROUPNAME];
-	int		yesno;
-	int		integer;
-	int		group_v4_bits;
-	int		group_v6_bits;
-	struct in_addr	group_v4address;
-	struct in6_addr	group_v6address;
-};
-
 struct ctl_main_info {
 	char		text[NETCFGD_MAXTEXT];
 };

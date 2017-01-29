@@ -324,34 +324,18 @@ engine_dispatch_main(int fd, short event, void *bula)
 void
 engine_showinfo_ctl(struct imsg *imsg)
 {
-	char filter[NETCFGD_MAXGROUPNAME];
-	struct ctl_engine_info cei;
-	struct group *g;
+	struct imsg_proposal imsg_proposal;
+	struct proposal_entry *p;
 
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_ENGINE_INFO:
-		memcpy(filter, imsg->data, sizeof(filter));
-		LIST_FOREACH(g, &engine_conf->group_list, entry) {
-			if (filter[0] == '\0' || memcmp(filter, g->name,
-			    sizeof(filter)) == 0) {
-				memcpy(cei.name, g->name, sizeof(cei.name));
-				cei.yesno = g->yesno;
-				cei.integer = g->integer;
-				cei.group_v4_bits = g->group_v4_bits;
-				cei.group_v6_bits = g->group_v6_bits;
-				memcpy(&cei.group_v4address,
-				    &g->group_v4address,
-				    sizeof(cei.group_v4address));
-				memcpy(&cei.group_v6address,
-				    &g->group_v6address,
-				    sizeof(cei.group_v6address));
-
-				engine_imsg_compose_frontend(
-				    IMSG_CTL_SHOW_ENGINE_INFO, imsg->hdr.pid,
-				    &cei, sizeof(cei));
-			}
+		TAILQ_FOREACH(p, &proposal_queue, entry) {
+			memcpy(&imsg_proposal, p->proposal,
+			    sizeof(imsg_proposal));
+			engine_imsg_compose_frontend(
+			    IMSG_CTL_SHOW_ENGINE_INFO, imsg->hdr.pid,
+			    &imsg_proposal, sizeof(imsg_proposal));
 		}
-
 		engine_imsg_compose_frontend(IMSG_CTL_END, imsg->hdr.pid, NULL,
 		    0);
 		break;
@@ -364,7 +348,7 @@ engine_showinfo_ctl(struct imsg *imsg)
 void
 engine_process_proposal(struct imsg_proposal *imsg)
 {
-	struct proposal_entry	*p;
+	struct proposal_entry	*p = NULL;
 
 	/* Discard duplicate proposals. */
 	TAILQ_FOREACH(p, &proposal_queue, entry) {
