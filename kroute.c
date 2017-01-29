@@ -139,7 +139,8 @@ kr_dispatch_msg(int fd, short event, void *bula)
 
 		switch (rtm->rtm_type) {
 		case RTM_PROPOSAL:
-			log_warnx("I see a RTM_PROPOSAL!");
+			log_warnx("I see a RTM_PROPOSAL from %d!",
+			    rtm->rtm_priority);
 			forward_proposal(rtm, rti_info);
 			break;
 		default:
@@ -181,6 +182,7 @@ forward_proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	proposal.flags = rtm->rtm_flags;
 	proposal.xid = rtm->rtm_seq;
 	proposal.index = rtm->rtm_index;
+	proposal.source = rtm->rtm_priority;
 
 	if (proposal.inits & RTV_MTU) {
 		proposal.mtu = rtm->rtm_rmx.rmx_mtu;
