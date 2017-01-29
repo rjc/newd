@@ -348,7 +348,7 @@ engine_showinfo_ctl(struct imsg *imsg)
 void
 engine_process_proposal(struct imsg_proposal *imsg)
 {
-	struct proposal_entry	*p = NULL;
+	struct proposal_entry	*p;
 
 	/* Discard duplicate proposals. */
 	TAILQ_FOREACH(p, &proposal_queue, entry) {
@@ -379,8 +379,10 @@ engine_process_proposal(struct imsg_proposal *imsg)
 	 *       contents may impact actions taken on new
 	 *       proposal.
 	 */
-	free(p->proposal);
-	free(p);
+	if (p != NULL) {
+		free(p->proposal);
+		free(p);
+	}
 
 	/* Save new proposal. */
 	p = malloc(sizeof(struct proposal_entry));
