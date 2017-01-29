@@ -16,5 +16,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+
+struct proposal_entry {
+	TAILQ_ENTRY(proposal_entry)	 entry;
+	struct imsg_proposal		*proposal;
+};
+
 void		 engine(int, int);
 int		 engine_imsg_compose_frontend(int, pid_t, void *, uint16_t);

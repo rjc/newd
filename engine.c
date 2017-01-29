@@ -44,10 +44,13 @@ void		 engine_sig_handler(int sig, short, void *);
 void		 engine_dispatch_frontend(int, short, void *);
 void		 engine_dispatch_main(int, short, void *);
 void		 engine_showinfo_ctl(struct imsg *);
+void		 engine_process_proposal(struct imsg_proposal *);
 
 struct netcfgd_conf	*engine_conf;
 struct imsgev		*iev_frontend;
 struct imsgev		*iev_main;
+
+TAILQ_HEAD(proposal_head, proposal_entry) proposal_queue;
 
 void
 engine_sig_handler(int sig, short event, void *arg)
@@ -114,6 +117,8 @@ engine(int debug, int verbose)
 	imsg_init(&iev_main->ibuf, 3);
 	iev_main->handler = engine_dispatch_main;
 
+	TAILQ_INIT(&proposal_queue);
+
 	/* Setup event handlers. */
 	iev_main->events = EV_READ;
 	event_set(&iev_main->ev, iev_main->ibuf.fd, iev_main->events,
@@ -125,9 +130,12 @@ engine(int debug, int verbose)
 	engine_shutdown();
 }
 
+
 __dead void
 engine_shutdown(void)
 {
+	struct proposal_entry	*p;
+
 	/* Close pipes. */
 	msgbuf_clear(&iev_frontend->ibuf.w);
 	close(iev_frontend->ibuf.fd);
@@ -138,6 +146,12 @@ engine_shutdown(void)
 
 	free(iev_frontend);
 	free(iev_main);
+
+	/* Discard proposals. */
+	while ((p = TAILQ_FIRST(&proposal_queue)) != NULL) {
+		free(p->proposal);
+		free(p);
+	}
 
 	log_info("engine exiting");
 	exit(0);
@@ -209,13 +223,14 @@ engine_dispatch_frontend(int fd, short event, void *bula)
 void
 engine_dispatch_main(int fd, short event, void *bula)
 {
+	struct imsg			 imsg;
 	static struct netcfgd_conf	*nconf;
-	struct imsg		 imsg;
-	struct group		*g;
-	struct imsgev		*iev = bula;
-	struct imsgbuf		*ibuf;
-	ssize_t			 n;
-	int			 shut = 0;
+	struct group			*g;
+	struct imsgev			*iev = bula;
+	struct imsgbuf			*ibuf;
+	struct imsg_proposal		*p;
+	ssize_t				 n;
+	int				 shut = 0;
 
 	ibuf = &iev->ibuf;
 
@@ -285,7 +300,10 @@ engine_dispatch_main(int fd, short event, void *bula)
 			nconf = NULL;
 			break;
 		case IMSG_SEND_PROPOSAL:
-			log_warnx("The engine gets a proposal!");
+			if ((p = malloc(sizeof(struct imsg_proposal))) == NULL)
+				fatal(NULL);
+			memcpy(p, imsg.data, sizeof(struct imsg_proposal));
+			engine_process_proposal(p);
 			break;
 		default:
 			log_debug("%s: unexpected imsg %d", __func__,
@@ -333,6 +351,7 @@ engine_showinfo_ctl(struct imsg *imsg)
 				    &cei, sizeof(cei));
 			}
 		}
+
 		engine_imsg_compose_frontend(IMSG_CTL_END, imsg->hdr.pid, NULL,
 		    0);
 		break;
@@ -340,4 +359,50 @@ engine_showinfo_ctl(struct imsg *imsg)
 		log_debug("%s: error handling imsg", __func__);
 		break;
 	}
+}
+
+void
+engine_process_proposal(struct imsg_proposal *imsg)
+{
+	struct proposal_entry	*p;
+
+	/* Discard duplicate proposals. */
+	TAILQ_FOREACH(p, &proposal_queue, entry) {
+		if (p->proposal->xid == imsg->xid) {
+			free(imsg);
+			log_warnx("proposal already received");
+			return;
+		}
+	}
+
+	/* Discard superseded proposals. */
+	TAILQ_FOREACH(p, &proposal_queue, entry) {
+		if ((p->proposal->index == imsg->index) &&
+		    (p->proposal->source == imsg->source)) {
+			log_warnx("proposal being superseded");
+			break;
+		}
+	}
+
+	/* Remove superseded proposal. */
+	if (p != NULL)
+		TAILQ_REMOVE(&proposal_queue, p, entry);
+
+	/*
+	 * Take appropriate action on proposal contents.
+	 *
+	 * XXX - for now just discard old proposal. In future
+	 *       contents may impact actions taken on new
+	 *       proposal.
+	 */
+	free(p->proposal);
+	free(p);
+
+	/* Save new proposal. */
+	p = malloc(sizeof(struct proposal_entry));
+	if (p == NULL)
+		fatal(NULL);
+	p->proposal = imsg;
+
+	TAILQ_INSERT_HEAD(&proposal_queue, p, entry);
 }
