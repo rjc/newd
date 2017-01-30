@@ -19,7 +19,8 @@
 
 struct proposal_entry {
 	TAILQ_ENTRY(proposal_entry)	 entry;
-	struct imsg_proposal		*proposal;
+	struct imsg_v4proposal		*v4proposal;
+	struct imsg_v6proposal		*v6proposal;
 };
 
 void		 engine(int, int);

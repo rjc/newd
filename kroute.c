@@ -173,7 +173,7 @@ get_rtaddrs(int addrs, struct sockaddr *sa, struct sockaddr **rti_info)
 void
 forward_proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 {
-	struct imsg_proposal	 proposal;
+	struct imsg_v4proposal	 proposal;
 	struct sockaddr_in	*sa_in;
 
 	memset(&proposal, 0, sizeof(proposal));
@@ -239,6 +239,6 @@ forward_proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 		    sizeof(proposal.dns4));
 	}
 
-	main_imsg_compose_engine(IMSG_SEND_PROPOSAL, 0, &proposal,
+	main_imsg_compose_engine(IMSG_SEND_V4PROPOSAL, 0, &proposal,
 	    sizeof(proposal));
 }

@@ -48,6 +48,8 @@ enum imsg_type {
 	IMSG_CTL_LOG_VERBOSE,
 	IMSG_CTL_RELOAD,
 	IMSG_CTL_SHOW_ENGINE_INFO,
+	IMSG_CTL_SHOW_ENGINE_V4INFO,
+	IMSG_CTL_SHOW_ENGINE_V6INFO,
 	IMSG_CTL_SHOW_FRONTEND_INFO,
 	IMSG_CTL_SHOW_MAIN_INFO,
 	IMSG_CTL_END,
@@ -55,7 +57,8 @@ enum imsg_type {
 	IMSG_RECONF_GROUP,
 	IMSG_RECONF_END,
 	IMSG_SOCKET_IPC,
-	IMSG_SEND_PROPOSAL
+	IMSG_SEND_V4PROPOSAL,
+	IMSG_SEND_V6PROPOSAL
 };
 
 enum {
@@ -92,7 +95,7 @@ struct ctl_main_info {
 	char		text[NETCFGD_MAXTEXT];
 };
 
-struct imsg_proposal {
+struct imsg_v4proposal {
 	uint8_t		rtstatic[128];
 	uint8_t		rtsearch[128];
 	struct in_addr	gateway;
@@ -102,6 +105,26 @@ struct imsg_proposal {
 	struct in_addr	dns2;
 	struct in_addr	dns3;
 	struct in_addr	dns4;
+	int		xid;
+	int		index;
+	int		source;
+	int		mtu;
+	int		addrs;
+	int		inits;
+	int		flags;
+	int		rtsearch_encoded;
+};
+
+struct imsg_v6proposal {
+	uint8_t		rtstatic[128];
+	uint8_t		rtsearch[128];
+	struct in6_addr	gateway;
+	struct in6_addr	ifa;
+	struct in6_addr	mask;
+	struct in6_addr	dns1;
+	struct in6_addr	dns2;
+	struct in6_addr	dns3;
+	struct in6_addr	dns4;
 	int		xid;
 	int		index;
 	int		source;
