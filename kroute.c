@@ -174,6 +174,7 @@ void
 forward_proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 {
 	struct imsg_proposal	 proposal;
+	struct sockaddr_in	*sa_in;
 
 	memset(&proposal, 0, sizeof(proposal));
 
@@ -203,31 +204,38 @@ forward_proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 		    sizeof(proposal.rtsearch));
 	}
 	if (rti_info[RTAX_GATEWAY] != NULL) {
-		memcpy(&proposal.gateway, rti_info[RTAX_GATEWAY],
+		sa_in = (struct sockaddr_in *)rti_info[RTAX_GATEWAY];
+		memcpy(&proposal.gateway, &sa_in->sin_addr,
 		    sizeof(proposal.gateway));
 	}
 	if (rti_info[RTAX_IFA] != NULL) {
-		memcpy(&proposal.ifa, rti_info[RTAX_IFA],
+		sa_in = (struct sockaddr_in *)rti_info[RTAX_IFA];
+		memcpy(&proposal.ifa, &sa_in->sin_addr,
 		    sizeof(proposal.ifa));
 	}
 	if (rti_info[RTAX_NETMASK] != NULL) {
-		memcpy(&proposal.mask, rti_info[RTAX_NETMASK],
+		sa_in = (struct sockaddr_in *)rti_info[RTAX_NETMASK];
+		memcpy(&proposal.mask, &sa_in->sin_addr,
 		    sizeof(proposal.mask));
 	}
 	if (rti_info[RTAX_DNS1] != NULL) {
-		memcpy(&proposal.dns1, rti_info[RTAX_DNS1],
+		sa_in = (struct sockaddr_in *)rti_info[RTAX_DNS1];
+		memcpy(&proposal.dns1, &sa_in->sin_addr,
 		    sizeof(proposal.dns1));
 	}
 	if (rti_info[RTAX_DNS2] != NULL) {
-		memcpy(&proposal.dns2, rti_info[RTAX_DNS2],
+		sa_in = (struct sockaddr_in *)rti_info[RTAX_DNS2];
+		memcpy(&proposal.dns2, &sa_in->sin_addr,
 		    sizeof(proposal.dns2));
 	}
 	if (rti_info[RTAX_DNS3] != NULL) {
-		memcpy(&proposal.dns3, rti_info[RTAX_DNS3],
+		sa_in = (struct sockaddr_in *)rti_info[RTAX_DNS3];
+		memcpy(&proposal.dns3, &sa_in->sin_addr,
 		    sizeof(proposal.dns3));
 	}
 	if (rti_info[RTAX_DNS4] != NULL) {
-		memcpy(&proposal.dns4, rti_info[RTAX_DNS4],
+		sa_in = (struct sockaddr_in *)rti_info[RTAX_DNS4];
+		memcpy(&proposal.dns4, &sa_in->sin_addr,
 		    sizeof(proposal.dns4));
 	}
 
