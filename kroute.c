@@ -223,8 +223,8 @@ forward_v4proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	}
 	if (rti_info[RTAX_NETMASK] != NULL) {
 		sa_in = (struct sockaddr_in *)rti_info[RTAX_NETMASK];
-		memcpy(&proposal.mask, &sa_in->sin_addr,
-		    sizeof(proposal.mask));
+		memcpy(&proposal.netmask, &sa_in->sin_addr,
+		    sizeof(proposal.netmask));
 	}
 	if (rti_info[RTAX_DNS1] != NULL) {
 		sa_in = (struct sockaddr_in *)rti_info[RTAX_DNS1];
@@ -296,8 +296,8 @@ forward_v6proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	}
 	if (rti_info[RTAX_NETMASK] != NULL) {
 		sa_in6 = (struct sockaddr_in6 *)rti_info[RTAX_NETMASK];
-		memcpy(&proposal.mask, &sa_in6->sin6_addr,
-		    sizeof(proposal.mask));
+		memcpy(&proposal.netmask, &sa_in6->sin6_addr,
+		    sizeof(proposal.netmask));
 	}
 	if (rti_info[RTAX_DNS1] != NULL) {
 		sa_in6 = (struct sockaddr_in6 *)rti_info[RTAX_DNS1];

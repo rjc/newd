@@ -100,7 +100,7 @@ struct imsg_v4proposal {
 	uint8_t		rtsearch[128];
 	struct in_addr	gateway;
 	struct in_addr	ifa;
-	struct in_addr	mask;
+	struct in_addr	netmask;
 	struct in_addr	dns1;
 	struct in_addr	dns2;
 	struct in_addr	dns3;
@@ -120,7 +120,7 @@ struct imsg_v6proposal {
 	uint8_t		rtsearch[128];
 	struct in6_addr	gateway;
 	struct in6_addr	ifa;
-	struct in6_addr	mask;
+	struct in6_addr	netmask;
 	struct in6_addr	dns1;
 	struct in6_addr	dns2;
 	struct in6_addr	dns3;
