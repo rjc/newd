@@ -52,6 +52,8 @@ void	kr_dispatch_msg(int, short, void *);
 int	get_rtaddrs(int, struct sockaddr *, struct sockaddr **);
 void	forward_v4proposal(struct rt_msghdr *, struct sockaddr **);
 void	forward_v6proposal(struct rt_msghdr *, struct sockaddr **);
+void	copy_sockaddr_in(struct in_addr *, struct sockaddr *);
+void	copy_sockaddr_in6(struct in6_addr *, struct sockaddr *);
 
 int
 kr_init(void)
@@ -182,7 +184,6 @@ void
 forward_v4proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 {
 	struct imsg_v4proposal	 proposal;
-	struct sockaddr_in	*sa_in;
 
 	memset(&proposal, 0, sizeof(proposal));
 
@@ -211,41 +212,14 @@ forward_v4proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 		memcpy(&proposal.rtsearch, rtsearch->sr_search,
 		    sizeof(proposal.rtsearch));
 	}
-	if (rti_info[RTAX_GATEWAY] != NULL) {
-		sa_in = (struct sockaddr_in *)rti_info[RTAX_GATEWAY];
-		memcpy(&proposal.gateway, &sa_in->sin_addr,
-		    sizeof(proposal.gateway));
-	}
-	if (rti_info[RTAX_IFA] != NULL) {
-		sa_in = (struct sockaddr_in *)rti_info[RTAX_IFA];
-		memcpy(&proposal.ifa, &sa_in->sin_addr,
-		    sizeof(proposal.ifa));
-	}
-	if (rti_info[RTAX_NETMASK] != NULL) {
-		sa_in = (struct sockaddr_in *)rti_info[RTAX_NETMASK];
-		memcpy(&proposal.netmask, &sa_in->sin_addr,
-		    sizeof(proposal.netmask));
-	}
-	if (rti_info[RTAX_DNS1] != NULL) {
-		sa_in = (struct sockaddr_in *)rti_info[RTAX_DNS1];
-		memcpy(&proposal.dns1, &sa_in->sin_addr,
-		    sizeof(proposal.dns1));
-	}
-	if (rti_info[RTAX_DNS2] != NULL) {
-		sa_in = (struct sockaddr_in *)rti_info[RTAX_DNS2];
-		memcpy(&proposal.dns2, &sa_in->sin_addr,
-		    sizeof(proposal.dns2));
-	}
-	if (rti_info[RTAX_DNS3] != NULL) {
-		sa_in = (struct sockaddr_in *)rti_info[RTAX_DNS3];
-		memcpy(&proposal.dns3, &sa_in->sin_addr,
-		    sizeof(proposal.dns3));
-	}
-	if (rti_info[RTAX_DNS4] != NULL) {
-		sa_in = (struct sockaddr_in *)rti_info[RTAX_DNS4];
-		memcpy(&proposal.dns4, &sa_in->sin_addr,
-		    sizeof(proposal.dns4));
-	}
+
+	copy_sockaddr_in(&proposal.gateway, rti_info[RTAX_GATEWAY]);
+	copy_sockaddr_in(&proposal.ifa, rti_info[RTAX_IFA]);
+	copy_sockaddr_in(&proposal.netmask, rti_info[RTAX_NETMASK]);
+	copy_sockaddr_in(&proposal.dns1, rti_info[RTAX_DNS1]);
+	copy_sockaddr_in(&proposal.dns2, rti_info[RTAX_DNS2]);
+	copy_sockaddr_in(&proposal.dns3, rti_info[RTAX_DNS3]);
+	copy_sockaddr_in(&proposal.dns4, rti_info[RTAX_DNS4]);
 
 	main_imsg_compose_engine(IMSG_SEND_V4PROPOSAL, 0, &proposal,
 	    sizeof(proposal));
@@ -254,8 +228,7 @@ forward_v4proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 void
 forward_v6proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 {
-	struct imsg_v4proposal	 proposal;
-	struct sockaddr_in6	*sa_in6;
+	struct imsg_v6proposal	 proposal;
 
 	memset(&proposal, 0, sizeof(proposal));
 
@@ -284,42 +257,38 @@ forward_v6proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 		memcpy(&proposal.rtsearch, rtsearch->sr_search,
 		    sizeof(proposal.rtsearch));
 	}
-	if (rti_info[RTAX_GATEWAY] != NULL) {
-		sa_in6 = (struct sockaddr_in6 *)rti_info[RTAX_GATEWAY];
-		memcpy(&proposal.gateway, &sa_in6->sin6_addr,
-		    sizeof(proposal.gateway));
-	}
-	if (rti_info[RTAX_IFA] != NULL) {
-		sa_in6 = (struct sockaddr_in6 *)rti_info[RTAX_IFA];
-		memcpy(&proposal.ifa, &sa_in6->sin6_addr,
-		    sizeof(proposal.ifa));
-	}
-	if (rti_info[RTAX_NETMASK] != NULL) {
-		sa_in6 = (struct sockaddr_in6 *)rti_info[RTAX_NETMASK];
-		memcpy(&proposal.netmask, &sa_in6->sin6_addr,
-		    sizeof(proposal.netmask));
-	}
-	if (rti_info[RTAX_DNS1] != NULL) {
-		sa_in6 = (struct sockaddr_in6 *)rti_info[RTAX_DNS1];
-		memcpy(&proposal.dns1, &sa_in6->sin6_addr,
-		    sizeof(proposal.dns1));
-	}
-	if (rti_info[RTAX_DNS2] != NULL) {
-		sa_in6 = (struct sockaddr_in6 *)rti_info[RTAX_DNS2];
-		memcpy(&proposal.dns2, &sa_in6->sin6_addr,
-		    sizeof(proposal.dns2));
-	}
-	if (rti_info[RTAX_DNS3] != NULL) {
-		sa_in6 = (struct sockaddr_in6 *)rti_info[RTAX_DNS3];
-		memcpy(&proposal.dns3, &sa_in6->sin6_addr,
-		    sizeof(proposal.dns3));
-	}
-	if (rti_info[RTAX_DNS4] != NULL) {
-		sa_in6 = (struct sockaddr_in6 *)rti_info[RTAX_DNS4];
-		memcpy(&proposal.dns4, &sa_in6->sin6_addr,
-		    sizeof(proposal.dns4));
-	}
 
-	main_imsg_compose_engine(IMSG_SEND_V6PROPOSAL, 0, &proposal,
-	    sizeof(proposal));
+	copy_sockaddr_in6(&proposal.gateway, rti_info[RTAX_GATEWAY]);
+	copy_sockaddr_in6(&proposal.ifa, rti_info[RTAX_IFA]);
+	copy_sockaddr_in6(&proposal.netmask, rti_info[RTAX_NETMASK]);
+	copy_sockaddr_in6(&proposal.dns1, rti_info[RTAX_DNS1]);
+	copy_sockaddr_in6(&proposal.dns2, rti_info[RTAX_DNS2]);
+	copy_sockaddr_in6(&proposal.dns3, rti_info[RTAX_DNS3]);
+	copy_sockaddr_in6(&proposal.dns4, rti_info[RTAX_DNS4]);
+}
+
+void
+copy_sockaddr_in(struct in_addr *in_addr, struct sockaddr *sa)
+{
+	struct sockaddr_in	*sa_in;
+
+	if (sa == NULL)
+		return;
+
+	sa_in = (struct sockaddr_in *)sa;
+
+	memcpy(in_addr, &sa_in->sin_addr, sizeof(*in_addr));
+}
+
+void
+copy_sockaddr_in6(struct in6_addr *in6_addr, struct sockaddr *sa)
+{
+	struct sockaddr_in6	*sa_in6;
+
+	if (sa == NULL)
+		return;
+
+	sa_in6 = (struct sockaddr_in6 *)sa;
+
+	memcpy(in6_addr, &sa_in6->sin6_addr, sizeof(*in6_addr));
 }
