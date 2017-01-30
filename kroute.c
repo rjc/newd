@@ -163,13 +163,13 @@ kr_dispatch_msg(int fd, short event, void *bula)
 int
 get_rtaddrs(int addrs, struct sockaddr *sa, struct sockaddr **rti_info)
 {
-	int	i, v6 = 0;
+	int	i, v6 = 1;
 
 	for (i = 0; i < RTAX_MAX; i++) {
 		if (addrs & (1 << i)) {
 			rti_info[i] = sa;
-			if (sa->sa_family == AF_INET6)
-				v6 = 1;
+			if (sa->sa_family == AF_INET)
+				v6 = 0;
 			sa = (struct sockaddr *)((char *)(sa) +
 			    ROUNDUP(sa->sa_len));
 		} else
