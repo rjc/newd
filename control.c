@@ -218,7 +218,7 @@ control_dispatch_imsg(int fd, short event, void *bula)
 	struct ctl_conn	*c;
 	struct imsg	 imsg;
 	ssize_t		 n;
-	int		 verbose;
+	int		 payload;
 
 	if ((c = control_connbyfd(fd)) == NULL) {
 		log_warnx("%s: fd %d: not found", __func__, fd);
@@ -253,7 +253,7 @@ control_dispatch_imsg(int fd, short event, void *bula)
 			break;
 		case IMSG_CTL_LOG_VERBOSE:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(verbose))
+			    sizeof(payload))
 				break;
 
 			/* Forward to all other processes. */
@@ -263,8 +263,8 @@ control_dispatch_imsg(int fd, short event, void *bula)
 			    imsg.hdr.pid, imsg.data,
 			    imsg.hdr.len - IMSG_HEADER_SIZE);
 
-			memcpy(&verbose, imsg.data, sizeof(verbose));
-			log_setverbose(verbose);
+			memcpy(&payload, imsg.data, sizeof(payload));
+			log_setverbose(payload);
 			break;
 		case IMSG_CTL_SHOW_MAIN_INFO:
 			c->iev.ibuf.pid = imsg.hdr.pid;
@@ -275,6 +275,14 @@ control_dispatch_imsg(int fd, short event, void *bula)
 			frontend_showinfo_ctl(c);
 			imsg_compose_event(&c->iev, IMSG_CTL_END, 0, 0, -1,
 			    NULL, 0);
+			break;
+		case IMSG_CTL_KILL_PROPOSAL:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(payload))
+				break;
+			c->iev.ibuf.pid = imsg.hdr.pid;
+			frontend_imsg_compose_engine(imsg.hdr.type, 0,
+			    imsg.hdr.pid,
+			    imsg.data, imsg.hdr.len - IMSG_HEADER_SIZE);
 			break;
 		case IMSG_CTL_SHOW_ENGINE_INFO:
 			c->iev.ibuf.pid = imsg.hdr.pid;

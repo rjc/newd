@@ -46,6 +46,7 @@ void		 engine_dispatch_main(int, short, void *);
 void		 engine_showinfo_ctl(struct imsg *);
 void		 engine_process_v4proposal(struct imsg_v4proposal *);
 void		 engine_process_v6proposal(struct imsg_v6proposal *);
+void		 engine_kill_proposal(int);
 
 struct netcfgd_conf	*engine_conf;
 struct imsgev		*iev_frontend;
@@ -174,7 +175,7 @@ engine_dispatch_frontend(int fd, short event, void *bula)
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	ssize_t			 n;
-	int			 shut = 0, verbose;
+	int			 shut = 0, payload;
 
 	ibuf = &iev->ibuf;
 
@@ -200,8 +201,12 @@ engine_dispatch_frontend(int fd, short event, void *bula)
 		switch (imsg.hdr.type) {
 		case IMSG_CTL_LOG_VERBOSE:
 			/* Already checked by frontend. */
-			memcpy(&verbose, imsg.data, sizeof(verbose));
-			log_setverbose(verbose);
+			memcpy(&payload, imsg.data, sizeof(payload));
+			log_setverbose(payload);
+			break;
+		case IMSG_CTL_KILL_PROPOSAL:
+			memcpy(&payload, imsg.data, sizeof(payload));
+			engine_kill_proposal(payload);
 			break;
 		case IMSG_CTL_SHOW_ENGINE_INFO:
 			engine_showinfo_ctl(&imsg);
@@ -459,4 +464,19 @@ engine_process_v6proposal(struct imsg_v6proposal *imsg)
 	p->v6proposal = imsg;
 
 	TAILQ_INSERT_HEAD(&proposal_queue, p, entry);
+}
+
+void
+engine_kill_proposal(int xid)
+{
+	struct proposal_entry *p;
+
+	TAILQ_FOREACH(p, &proposal_queue, entry) {
+		if ((p->v6proposal != NULL && p->v6proposal->xid == xid) ||
+		    (p->v4proposal != NULL && p->v4proposal->xid == xid))
+			break;
+	}
+
+	if (p != NULL)
+		TAILQ_REMOVE(&proposal_queue, p, entry);
 }
