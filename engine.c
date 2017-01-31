@@ -209,6 +209,8 @@ engine_dispatch_frontend(int fd, short event, void *bula)
 			memcpy(&payload, imsg.data, sizeof(payload));
 			engine_kill_proposal(payload);
 			break;
+		case IMSG_CTL_SHOW_DHCLIENT:
+		case IMSG_CTL_SHOW_SLAAC:
 		case IMSG_CTL_SHOW_PROPOSALS:
 			engine_showinfo_ctl(&imsg);
 			break;
@@ -344,10 +346,36 @@ engine_showinfo_ctl(struct imsg *imsg)
 	struct imsg_v4proposal	 imsg_v4proposal;
 	struct imsg_v6proposal	 imsg_v6proposal;
 	char			 ifname[IF_NAMESIZE];
-	struct proposal_entry *p;
-	int index;
+	struct proposal_entry	*p;
+	int			 index;
 
 	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_DHCLIENT:
+		TAILQ_FOREACH(p, &proposal_queue, entry) {
+			if (p->v4proposal == NULL)
+				continue;
+			memcpy(&imsg_v4proposal, p->v4proposal,
+			    sizeof(imsg_v4proposal));
+			engine_imsg_compose_frontend( IMSG_CTL_SHOW_DHCLIENT,
+			    imsg->hdr.pid, &imsg_v4proposal,
+			    sizeof(imsg_v4proposal));
+		}
+		engine_imsg_compose_frontend(IMSG_CTL_END, imsg->hdr.pid, NULL,
+		    0);
+		break;
+	case IMSG_CTL_SHOW_SLAAC:
+		TAILQ_FOREACH(p, &proposal_queue, entry) {
+			if (p->v6proposal == NULL)
+				continue;
+			memcpy(&imsg_v6proposal, p->v6proposal,
+			    sizeof(imsg_v6proposal));
+			engine_imsg_compose_frontend(
+			    IMSG_CTL_SHOW_SLAAC, imsg->hdr.pid,
+			    &imsg_v6proposal, sizeof(imsg_v6proposal));
+		}
+		engine_imsg_compose_frontend(IMSG_CTL_END, imsg->hdr.pid, NULL,
+		    0);
+		break;
 	case IMSG_CTL_SHOW_PROPOSALS:
 		memcpy(ifname, imsg->data, sizeof(ifname));
 		index = if_nametoindex(ifname);
