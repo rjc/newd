@@ -23,6 +23,7 @@
 #include <sys/syslog.h>
 #include <sys/uio.h>
 
+#include <net/if.h>
 #include <netinet/in.h>
 
 #include <errno.h>
@@ -292,9 +293,9 @@ frontend_dispatch_engine(int fd, short event, void *bula)
 
 		switch (imsg.hdr.type) {
 		case IMSG_CTL_END:
-		case IMSG_CTL_SHOW_ENGINE_INFO:
-		case IMSG_CTL_SHOW_ENGINE_V4INFO:
-		case IMSG_CTL_SHOW_ENGINE_V6INFO:
+		case IMSG_CTL_SHOW_PROPOSALS:
+		case IMSG_CTL_SHOW_DHCLIENT:
+		case IMSG_CTL_SHOW_SLAAC:
 			control_imsg_relay(&imsg);
 			break;
 		default:

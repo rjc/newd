@@ -22,6 +22,7 @@
 #include <sys/uio.h>
 #include <sys/un.h>
 
+#include <net/if.h>
 #include <netinet/in.h>
 
 #include <errno.h>
@@ -284,7 +285,7 @@ control_dispatch_imsg(int fd, short event, void *bula)
 			    imsg.hdr.pid,
 			    imsg.data, imsg.hdr.len - IMSG_HEADER_SIZE);
 			break;
-		case IMSG_CTL_SHOW_ENGINE_INFO:
+		case IMSG_CTL_SHOW_PROPOSALS:
 			c->iev.ibuf.pid = imsg.hdr.pid;
 			frontend_imsg_compose_engine(imsg.hdr.type, 0,
 			    imsg.hdr.pid,

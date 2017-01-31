@@ -24,6 +24,7 @@
 #include <sys/uio.h>
 #include <sys/wait.h>
 
+#include <net/if.h>
 #include <netinet/in.h>
 
 #include <err.h>

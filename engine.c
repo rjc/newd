@@ -24,6 +24,7 @@
 #include <sys/syslog.h>
 #include <sys/uio.h>
 
+#include <net/if.h>
 #include <netinet/in.h>
 
 #include <errno.h>
@@ -208,7 +209,7 @@ engine_dispatch_frontend(int fd, short event, void *bula)
 			memcpy(&payload, imsg.data, sizeof(payload));
 			engine_kill_proposal(payload);
 			break;
-		case IMSG_CTL_SHOW_ENGINE_INFO:
+		case IMSG_CTL_SHOW_PROPOSALS:
 			engine_showinfo_ctl(&imsg);
 			break;
 		default:
@@ -340,24 +341,34 @@ engine_dispatch_main(int fd, short event, void *bula)
 void
 engine_showinfo_ctl(struct imsg *imsg)
 {
-	struct imsg_v4proposal imsg_v4proposal;
-	struct imsg_v6proposal imsg_v6proposal;
+	struct imsg_v4proposal	 imsg_v4proposal;
+	struct imsg_v6proposal	 imsg_v6proposal;
+	char			 ifname[IF_NAMESIZE];
 	struct proposal_entry *p;
+	int index;
 
 	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_ENGINE_INFO:
+	case IMSG_CTL_SHOW_PROPOSALS:
+		memcpy(ifname, imsg->data, sizeof(ifname));
+		index = if_nametoindex(ifname);
 		TAILQ_FOREACH(p, &proposal_queue, entry) {
 			if (p->v4proposal != NULL) {
+				if (p->v4proposal->index != index &&
+				    index != 0)
+					continue;
 				memcpy(&imsg_v4proposal, p->v4proposal,
 				    sizeof(imsg_v4proposal));
 				engine_imsg_compose_frontend(
-				    IMSG_CTL_SHOW_ENGINE_V4INFO, imsg->hdr.pid,
+				    IMSG_CTL_SHOW_DHCLIENT, imsg->hdr.pid,
 				    &imsg_v4proposal, sizeof(imsg_v4proposal));
 			} else if (p->v6proposal != NULL) {
+				if (p->v6proposal->index != index &&
+				    index != 0)
+					continue;
 				memcpy(&imsg_v6proposal, p->v6proposal,
 				    sizeof(imsg_v4proposal));
 				engine_imsg_compose_frontend(
-				    IMSG_CTL_SHOW_ENGINE_V6INFO, imsg->hdr.pid,
+				    IMSG_CTL_SHOW_SLAAC, imsg->hdr.pid,
 				    &imsg_v6proposal, sizeof(imsg_v6proposal));
 			}
 		}
