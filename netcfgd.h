@@ -107,7 +107,7 @@ struct imsg_v4proposal {
 	struct in_addr	dns3;
 	struct in_addr	dns4;
 	int		xid;
-	int		index;
+	unsigned int	index;
 	int		source;
 	int		mtu;
 	int		addrs;
@@ -127,7 +127,7 @@ struct imsg_v6proposal {
 	struct in6_addr	dns3;
 	struct in6_addr	dns4;
 	int		xid;
-	int		index;
+	unsigned int	index;
 	int		source;
 	int		mtu;
 	int		addrs;
