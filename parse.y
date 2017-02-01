@@ -1,6 +1,7 @@
 /*	$OpenBSD$	*/
 
 /*
+ * Copyright (c) 2017 Kenneth R Westerback <krw@openbsd.org>
  * Copyright (c) 2004, 2005 Esben Norby <norby@openbsd.org>
  * Copyright (c) 2004 Ryan McBride <mcbride@openbsd.org>
  * Copyright (c) 2002, 2003, 2004 Henning Brauer <henning@openbsd.org>
