@@ -45,12 +45,12 @@ struct imsgev {
 
 enum imsg_type {
 	IMSG_NONE,
-	IMSG_CTL_LOG_VERBOSE,
+	IMSG_CTL_LOG_LEVEL,
 	IMSG_CTL_RELOAD,
 	IMSG_CTL_KILL_PROPOSAL,
 	IMSG_CTL_SHOW_PROPOSALS,
-	IMSG_CTL_SHOW_DHCLIENT,
-	IMSG_CTL_SHOW_SLAAC,
+	IMSG_CTL_REPLY_V4PROPOSAL,
+	IMSG_CTL_REPLY_V6PROPOSAL,
 	IMSG_CTL_SHOW_FRONTEND_INFO,
 	IMSG_CTL_SHOW_MAIN_INFO,
 	IMSG_CTL_END,
@@ -94,6 +94,11 @@ struct ctl_frontend_info {
 
 struct ctl_main_info {
 	char		text[NETCFGD_MAXTEXT];
+};
+
+struct ctl_show_proposal {
+	unsigned int	ifindex;
+	int		source;
 };
 
 struct imsg_v4proposal {

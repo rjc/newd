@@ -375,7 +375,7 @@ main_dispatch_frontend(int fd, short event, void *bula)
 			else
 				log_warnx("configuration reloaded");
 			break;
-		case IMSG_CTL_LOG_VERBOSE:
+		case IMSG_CTL_LOG_LEVEL:
 			/* Already checked by frontend. */
 			memcpy(&verbose, imsg.data, sizeof(verbose));
 			log_setverbose(verbose);

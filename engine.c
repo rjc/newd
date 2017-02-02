@@ -49,6 +49,10 @@ void		 engine_showinfo_ctl(struct imsg *);
 void		 engine_process_v4proposal(struct imsg_v4proposal *);
 void		 engine_process_v6proposal(struct imsg_v6proposal *);
 void		 engine_kill_proposal(int);
+void		 engine_show_v4proposal(struct imsg *,
+		     struct imsg_v4proposal *, struct ctl_show_proposal *);
+void		 engine_show_v6proposal(struct imsg *,
+		     struct imsg_v6proposal *, struct ctl_show_proposal *);
 
 struct netcfgd_conf	*engine_conf;
 struct imsgev		*iev_frontend;
@@ -201,7 +205,7 @@ engine_dispatch_frontend(int fd, short event, void *bula)
 			break;
 
 		switch (imsg.hdr.type) {
-		case IMSG_CTL_LOG_VERBOSE:
+		case IMSG_CTL_LOG_LEVEL:
 			/* Already checked by frontend. */
 			memcpy(&payload, imsg.data, sizeof(payload));
 			log_setverbose(payload);
@@ -210,8 +214,6 @@ engine_dispatch_frontend(int fd, short event, void *bula)
 			memcpy(&payload, imsg.data, sizeof(payload));
 			engine_kill_proposal(payload);
 			break;
-		case IMSG_CTL_SHOW_DHCLIENT:
-		case IMSG_CTL_SHOW_SLAAC:
 		case IMSG_CTL_SHOW_PROPOSALS:
 			engine_showinfo_ctl(&imsg);
 			break;
@@ -344,60 +346,19 @@ engine_dispatch_main(int fd, short event, void *bula)
 void
 engine_showinfo_ctl(struct imsg *imsg)
 {
-	struct imsg_v4proposal	 imsg_v4proposal;
-	struct imsg_v6proposal	 imsg_v6proposal;
-	struct proposal_entry	*p;
-	unsigned int		 index;
+	struct ctl_show_proposal	 csp;
+	struct proposal_entry		*p;
 
 	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_DHCLIENT:
-		TAILQ_FOREACH(p, &proposal_queue, entry) {
-			if (p->v4proposal == NULL)
-				continue;
-			memcpy(&imsg_v4proposal, p->v4proposal,
-			    sizeof(imsg_v4proposal));
-			engine_imsg_compose_frontend( IMSG_CTL_SHOW_DHCLIENT,
-			    imsg->hdr.pid, &imsg_v4proposal,
-			    sizeof(imsg_v4proposal));
-		}
-		engine_imsg_compose_frontend(IMSG_CTL_END, imsg->hdr.pid, NULL,
-		    0);
-		break;
-	case IMSG_CTL_SHOW_SLAAC:
-		TAILQ_FOREACH(p, &proposal_queue, entry) {
-			if (p->v6proposal == NULL)
-				continue;
-			memcpy(&imsg_v6proposal, p->v6proposal,
-			    sizeof(imsg_v6proposal));
-			engine_imsg_compose_frontend(
-			    IMSG_CTL_SHOW_SLAAC, imsg->hdr.pid,
-			    &imsg_v6proposal, sizeof(imsg_v6proposal));
-		}
-		engine_imsg_compose_frontend(IMSG_CTL_END, imsg->hdr.pid, NULL,
-		    0);
-		break;
 	case IMSG_CTL_SHOW_PROPOSALS:
-		memcpy(&index, imsg->data, sizeof(index));
+		memcpy(&csp, imsg->data, sizeof(csp));
 		TAILQ_FOREACH(p, &proposal_queue, entry) {
-			if (p->v4proposal != NULL) {
-				if (p->v4proposal->index != index &&
-				    index != 0)
-					continue;
-				memcpy(&imsg_v4proposal, p->v4proposal,
-				    sizeof(imsg_v4proposal));
-				engine_imsg_compose_frontend(
-				    IMSG_CTL_SHOW_DHCLIENT, imsg->hdr.pid,
-				    &imsg_v4proposal, sizeof(imsg_v4proposal));
-			} else if (p->v6proposal != NULL) {
-				if (p->v6proposal->index != index &&
-				    index != 0)
-					continue;
-				memcpy(&imsg_v6proposal, p->v6proposal,
-				    sizeof(imsg_v4proposal));
-				engine_imsg_compose_frontend(
-				    IMSG_CTL_SHOW_SLAAC, imsg->hdr.pid,
-				    &imsg_v6proposal, sizeof(imsg_v6proposal));
-			}
+			if (p->v4proposal != NULL)
+				engine_show_v4proposal(imsg, p->v4proposal,
+				    &csp);
+			else if (p->v6proposal != NULL)
+				engine_show_v6proposal(imsg, p->v6proposal,
+				    &csp);
 		}
 		engine_imsg_compose_frontend(IMSG_CTL_END, imsg->hdr.pid, NULL,
 		    0);
@@ -517,4 +478,36 @@ engine_kill_proposal(int xid)
 
 	if (p != NULL)
 		TAILQ_REMOVE(&proposal_queue, p, entry);
+}
+
+void
+engine_show_v4proposal(struct imsg *imsg, struct imsg_v4proposal *p,
+    struct ctl_show_proposal *csp)
+{
+	struct imsg_v4proposal	imsg_v4proposal;
+
+	if (csp->ifindex != 0 && p->index != csp->ifindex)
+		return;
+	if (csp->source != 0 && csp->source != p->source)
+		return;
+
+	memcpy(&imsg_v4proposal, p, sizeof(imsg_v4proposal));
+	engine_imsg_compose_frontend(IMSG_CTL_REPLY_V4PROPOSAL, imsg->hdr.pid,
+	    &imsg_v4proposal, sizeof(imsg_v4proposal));
+}
+
+void
+engine_show_v6proposal(struct imsg *imsg, struct imsg_v6proposal *p,
+    struct ctl_show_proposal *csp)
+{
+	struct imsg_v6proposal	imsg_v6proposal;
+
+	if (csp->ifindex != 0 && p->index != csp->ifindex)
+		return;
+	if (csp->source != 0 && csp->source != p->source)
+		return;
+
+	memcpy(&imsg_v6proposal, p, sizeof(imsg_v6proposal));
+	engine_imsg_compose_frontend(IMSG_CTL_REPLY_V6PROPOSAL, imsg->hdr.pid,
+	    &imsg_v6proposal, sizeof(imsg_v6proposal));
 }

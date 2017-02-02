@@ -252,7 +252,7 @@ control_dispatch_imsg(int fd, short event, void *bula)
 		case IMSG_CTL_RELOAD:
 			frontend_imsg_compose_main(imsg.hdr.type, 0, NULL, 0);
 			break;
-		case IMSG_CTL_LOG_VERBOSE:
+		case IMSG_CTL_LOG_LEVEL:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +
 			    sizeof(payload))
 				break;
@@ -285,8 +285,6 @@ control_dispatch_imsg(int fd, short event, void *bula)
 			    imsg.hdr.pid,
 			    imsg.data, imsg.hdr.len - IMSG_HEADER_SIZE);
 			break;
-		case IMSG_CTL_SHOW_DHCLIENT:
-		case IMSG_CTL_SHOW_SLAAC:
 		case IMSG_CTL_SHOW_PROPOSALS:
 			c->iev.ibuf.pid = imsg.hdr.pid;
 			frontend_imsg_compose_engine(imsg.hdr.type, 0,

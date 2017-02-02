@@ -294,9 +294,8 @@ frontend_dispatch_engine(int fd, short event, void *bula)
 
 		switch (imsg.hdr.type) {
 		case IMSG_CTL_END:
-		case IMSG_CTL_SHOW_PROPOSALS:
-		case IMSG_CTL_SHOW_DHCLIENT:
-		case IMSG_CTL_SHOW_SLAAC:
+		case IMSG_CTL_REPLY_V4PROPOSAL:
+		case IMSG_CTL_REPLY_V6PROPOSAL:
 			control_imsg_relay(&imsg);
 			break;
 		default:
