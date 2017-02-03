@@ -235,7 +235,7 @@ frontend_dispatch_main(int fd, short event, void *bula)
 			memcpy(nconf, imsg.data, sizeof(struct netcfgd_conf));
 			LIST_INIT(&nconf->policy_list);
 			break;
-		case IMSG_RECONF_GROUP:
+		case IMSG_RECONF_POLICY:
 			if ((p = malloc(sizeof(struct interface_policy))) == NULL)
 				fatal(NULL);
 			memcpy(p, imsg.data, sizeof(struct interface_policy));

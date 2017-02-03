@@ -26,6 +26,7 @@
 #include <sys/uio.h>
 
 #include <net/if.h>
+#include <net/route.h>
 #include <netinet/in.h>
 
 #include <errno.h>
@@ -245,6 +246,7 @@ engine_dispatch_main(int fd, short event, void *bula)
 	struct imsg_v6proposal		*p6;
 	ssize_t				 n;
 	int				 shut = 0;
+	unsigned int			 index;
 
 	ibuf = &iev->ibuf;
 
@@ -303,13 +305,20 @@ engine_dispatch_main(int fd, short event, void *bula)
 			memcpy(nconf, imsg.data, sizeof(struct netcfgd_conf));
 			LIST_INIT(&nconf->policy_list);
 			break;
-		case IMSG_RECONF_GROUP:
+		case IMSG_RECONF_POLICY:
 			if ((p = malloc(sizeof(struct interface_policy)))
 			    == NULL)
 				fatal(NULL);
 			memcpy(p, imsg.data,
 			    sizeof(struct interface_policy));
-			LIST_INSERT_HEAD(&nconf->policy_list, p, entry);
+			index = if_nametoindex(p->name);
+			if (index == 0)
+				log_warnx("%s:%s", p->name, strerror(errno));
+			else {
+				p->ifindex = index;
+				LIST_INSERT_HEAD(&nconf->policy_list, p,
+				    entry);
+			}
 			break;
 		case IMSG_RECONF_END:
 			merge_config(engine_conf, nconf);
@@ -374,7 +383,34 @@ engine_showinfo_ctl(struct imsg *imsg)
 void
 engine_process_v4proposal(struct imsg_v4proposal *imsg)
 {
+	char			 ifname[IF_NAMESIZE];
 	struct proposal_entry	*p;
+	struct interface_policy	*ifp;
+
+	/* Discard proposals for unconfigured interfaces or sources. */
+	LIST_FOREACH(ifp, &engine_conf->policy_list, entry) {
+		if (ifp->ifindex == imsg->index) {
+			if (imsg->source == DHCLIENT_PROPOSAL &&
+			    ifp->dhclient == 0) {
+				ifp = NULL;
+				log_warnx("'%s' not configured for dhclient",
+				    if_indextoname(imsg->index, ifname));
+
+			}
+			else if (imsg->source == STATIC_PROPOSAL &&
+			    ifp->statik == 0) {
+				ifp = NULL;
+				log_warnx("'%s' not configured for static v4",
+				    if_indextoname(imsg->index, ifname));
+			}
+			break;
+		}
+	}
+	if (ifp == NULL) {
+		log_warnx("'%s' proposal can't be accepted",
+		    if_indextoname(imsg->index, ifname));
+		return;
+	}
 
 	/* Discard duplicate proposals. */
 	TAILQ_FOREACH(p, &proposal_queue, entry) {
@@ -385,7 +421,7 @@ engine_process_v4proposal(struct imsg_v4proposal *imsg)
 		}
 	}
 
-	/* Discard superseded proposals. */
+	/* Remove superseded proposal. */
 	TAILQ_FOREACH(p, &proposal_queue, entry) {
 		if ((p->v4proposal->index == imsg->index) &&
 		    (p->v4proposal->source == imsg->source)) {
@@ -393,8 +429,6 @@ engine_process_v4proposal(struct imsg_v4proposal *imsg)
 			break;
 		}
 	}
-
-	/* Remove superseded proposal. */
 	if (p != NULL)
 		TAILQ_REMOVE(&proposal_queue, p, entry);
 
@@ -422,7 +456,34 @@ engine_process_v4proposal(struct imsg_v4proposal *imsg)
 void
 engine_process_v6proposal(struct imsg_v6proposal *imsg)
 {
+	char			 ifname[IF_NAMESIZE];
 	struct proposal_entry	*p;
+	struct interface_policy	*ifp;
+
+	/* Discard proposals for unconfigured interfaces or sources. */
+	LIST_FOREACH(ifp, &engine_conf->policy_list, entry) {
+		if (ifp->ifindex == imsg->index) {
+			if (imsg->source == SLAAC_PROPOSAL &&
+			    ifp->dhclient == 0) {
+				ifp = NULL;
+				log_warnx("'%s' not configured for slaac",
+				    if_indextoname(imsg->index, ifname));
+
+			}
+			else if (imsg->source == STATIC_PROPOSAL &&
+			    ifp->statik == 0) {
+				ifp = NULL;
+				log_warnx("'%s' not configured for static v6",
+				    if_indextoname(imsg->index, ifname));
+			}
+			break;
+		}
+	}
+	if (ifp == NULL) {
+		log_warnx("'%s' proposal can't be accepted",
+		    if_indextoname(imsg->index, ifname));
+		return;
+	}
 
 	/* Discard duplicate proposals. */
 	TAILQ_FOREACH(p, &proposal_queue, entry) {
@@ -433,7 +494,7 @@ engine_process_v6proposal(struct imsg_v6proposal *imsg)
 		}
 	}
 
-	/* Discard superseded proposals. */
+	/* Remove superseded proposal. */
 	TAILQ_FOREACH(p, &proposal_queue, entry) {
 		if ((p->v6proposal->index == imsg->index) &&
 		    (p->v6proposal->source == imsg->source)) {
@@ -441,8 +502,6 @@ engine_process_v6proposal(struct imsg_v6proposal *imsg)
 			break;
 		}
 	}
-
-	/* Remove superseded proposal. */
 	if (p != NULL)
 		TAILQ_REMOVE(&proposal_queue, p, entry);
 

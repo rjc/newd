@@ -534,7 +534,7 @@ main_imsg_send_config(struct netcfgd_conf *xconf)
 
 	/* Send the group list to children. */
 	LIST_FOREACH(p, &xconf->policy_list, entry) {
-		if (main_sendboth(IMSG_RECONF_GROUP, p, sizeof(*p)) == -1)
+		if (main_sendboth(IMSG_RECONF_POLICY, p, sizeof(*p)) == -1)
 			return (-1);
 	}
 
