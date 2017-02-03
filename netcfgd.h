@@ -68,22 +68,18 @@ enum {
 	PROC_FRONTEND
 } netcfgd_process;
 
-struct group {
-	LIST_ENTRY(group)	 entry;
+struct interface_policy {
+	LIST_ENTRY(interface_policy)	 entry;
+
 	char		name[IF_NAMESIZE];
-	int		yesno;
-	int		integer;
-	int		group_v4_bits;
-	int		group_v6_bits;
-	struct in_addr	group_v4address;
-	struct in6_addr	group_v6address;
+	unsigned int	ifindex;
+	int		dhclient;
+	int		slaac;
+	int		statik;
 };
 
 struct netcfgd_conf {
-	int		yesno;
-	int		integer;
-	char		global_text[NETCFGD_MAXTEXT];
-	LIST_HEAD(, group)	group_list;
+	LIST_HEAD(, interface_policy)	policy_list;
 };
 
 struct ctl_frontend_info {

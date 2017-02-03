@@ -35,31 +35,17 @@
 void
 print_config(struct netcfgd_conf *conf)
 {
-	struct group *g;
-	char buf[INET6_ADDRSTRLEN], *bufp;
+	struct interface_policy *p;
 
-	printf("yesno %s\n", conf->yesno ? "yes" : "no");
-	printf("integer %d\n", conf->integer);
-	printf("\n");
+	LIST_FOREACH(p, &conf->policy_list, entry) {
+		printf("interface %s {\n", p->name);
 
-	printf("global_text \"%s\"\n", conf->global_text);
-	printf("\n");
-
-
-	LIST_FOREACH(g, &conf->group_list, entry) {
-		printf("group %s {\n", g->name);
-
-		printf("\tyesno %s\n", g->yesno ? "yes" : "no");
-		printf("\tinteger %d\n", g->integer);
-
-		bufp = inet_net_ntop(AF_INET, &g->group_v4address,
-		    g->group_v4_bits, buf, sizeof(buf));
-		printf("\tgroup-v4address %s\n",
-		    bufp ? bufp : "<invalid IPv4>");
-		bufp = inet_net_ntop(AF_INET6, &g->group_v6address,
-		    g->group_v6_bits, buf, sizeof(buf));
-		printf("\tgroup-v6address %s\n",
-		    bufp ? bufp : "<invalid IPv6>");
+		if (p->dhclient)
+			printf("\tdhclient\n");
+		if (p->slaac)
+			printf("\tslaac\n");
+		if (p->statik)
+			printf("\tstatic\n");
 
 		printf("}\n");
 	}

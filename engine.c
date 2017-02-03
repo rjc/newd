@@ -238,7 +238,7 @@ engine_dispatch_main(int fd, short event, void *bula)
 {
 	struct imsg			 imsg;
 	static struct netcfgd_conf	*nconf;
-	struct group			*g;
+	struct interface_policy		*p;
 	struct imsgev			*iev = bula;
 	struct imsgbuf			*ibuf;
 	struct imsg_v4proposal		*p4;
@@ -301,13 +301,15 @@ engine_dispatch_main(int fd, short event, void *bula)
 			if ((nconf = malloc(sizeof(struct netcfgd_conf))) == NULL)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct netcfgd_conf));
-			LIST_INIT(&nconf->group_list);
+			LIST_INIT(&nconf->policy_list);
 			break;
 		case IMSG_RECONF_GROUP:
-			if ((g = malloc(sizeof(struct group))) == NULL)
+			if ((p = malloc(sizeof(struct interface_policy)))
+			    == NULL)
 				fatal(NULL);
-			memcpy(g, imsg.data, sizeof(struct group));
-			LIST_INSERT_HEAD(&nconf->group_list, g, entry);
+			memcpy(p, imsg.data,
+			    sizeof(struct interface_policy));
+			LIST_INSERT_HEAD(&nconf->policy_list, p, entry);
 			break;
 		case IMSG_RECONF_END:
 			merge_config(engine_conf, nconf);

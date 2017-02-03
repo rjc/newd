@@ -89,10 +89,9 @@ void	 clear_config(struct netcfgd_conf *xconf);
 static struct netcfgd_conf	*conf;
 static int			 errors;
 
-static struct group	*group;
+static struct interface_policy	*policy;
 
-struct group	*conf_get_group(char *);
-void		*conf_del_group(struct group *);
+struct interface_policy	*conf_get_policy(char *);
 
 typedef struct {
 	union {
@@ -104,14 +103,11 @@ typedef struct {
 
 %}
 
-%token	GROUP YES NO INCLUDE ERROR
-%token	YESNO INTEGER
-%token	GLOBAL_TEXT
-%token	GROUP_V4ADDRESS GROUP_V6ADDRESS
+%token	INCLUDE ERROR
+%token	INTERFACE DHCLIENT SLAAC STATIC
 
 %token	<v.string>	STRING
 %token	<v.number>	NUMBER
-%type	<v.number>	yesno
 %type	<v.string>	string
 
 %%
@@ -119,9 +115,8 @@ typedef struct {
 grammar		: /* empty */
 		| grammar include '\n'
 		| grammar '\n'
-		| grammar conf_main '\n'
 		| grammar varset '\n'
-		| grammar group '\n'
+		| grammar interface '\n'
 		| grammar error '\n'		{ file->errors++; }
 		;
 
@@ -153,10 +148,6 @@ string		: string STRING	{
 		| STRING
 		;
 
-yesno		: YES	{ $$ = 1; }
-		| NO	{ $$ = 0; }
-		;
-
 varset		: STRING '=' string		{
 			char *s = $1;
 			if (cmd_opts & OPT_VERBOSE)
@@ -175,25 +166,6 @@ varset		: STRING '=' string		{
 		}
 		;
 
-conf_main	: YESNO yesno {
-			conf->yesno = $2;
-		}
-		| INTEGER NUMBER {
-			conf->integer = $2;
-		}
-		| GLOBAL_TEXT STRING {
-			size_t n;
-			memset(conf->global_text, 0,
-			    sizeof(conf->global_text));
-			n = strlcpy(conf->global_text, $2,
-			    sizeof(conf->global_text));
-			if (n >= sizeof(conf->global_text)) {
-				yyerror("error parsing global_text: too long");
-				free($2);
-				YYERROR;
-			}
-		}
-
 optnl		: '\n' optnl		/* zero or more newlines */
 		| /*empty*/
 		;
@@ -201,46 +173,25 @@ optnl		: '\n' optnl		/* zero or more newlines */
 nl		: '\n' optnl		/* one or more newlines */
 		;
 
-group		: GROUP STRING {
-			group = conf_get_group($2);
-		} '{' optnl groupopts_l '}' {
-			group = NULL;
+interface	: INTERFACE STRING {
+			policy = conf_get_policy($2);
+		} '{' optnl policyopts_l '}' {
+			policy = NULL;
 		}
 		;
 
-groupopts_l	: groupopts_l groupoptsl nl
-		| groupoptsl optnl
+policyopts_l	: policyopts_l policyoptsl nl
+		| policyoptsl optnl
 		;
 
-groupoptsl	: GROUP_V4ADDRESS STRING {
-			memset(&group->group_v4address, 0,
-			    sizeof(group->group_v4address));
-			group->group_v4_bits = inet_net_pton(AF_INET, $2,
-			    &group->group_v4address,
-			    sizeof(group->group_v4address));
-			if (group->group_v4_bits == -1) {
-				yyerror("error parsing group_v4address");
-				free($2);
-				YYERROR;
-			}
+policyoptsl	: DHCLIENT {
+			policy->dhclient = 1;
 		}
-		| GROUP_V6ADDRESS STRING {
-			memset(&group->group_v6address, 0,
-			    sizeof(group->group_v6address));
-			group->group_v6_bits = inet_net_pton(AF_INET6, $2,
-			    &group->group_v6address,
-			    sizeof(group->group_v6address));
-			if (group->group_v6_bits == -1) {
-				yyerror("error parsing group_v6address");
-				free($2);
-				YYERROR;
-			}
+		| SLAAC {
+			policy->slaac = 1;
 		}
-		| YESNO yesno {
-			group->yesno = $2;
-		}
-		| INTEGER NUMBER {
-			group->integer = $2;
+		| STATIC {
+			policy->statik = 1;
 		}
 		;
 
@@ -278,15 +229,11 @@ lookup(char *s)
 {
 	/* This has to be sorted always. */
 	static const struct keywords keywords[] = {
-		{"global-text",		GLOBAL_TEXT},
-		{"group",		GROUP},
-		{"group-v4address",	GROUP_V4ADDRESS},
-		{"group-v6address",	GROUP_V6ADDRESS},
+		{"dhclient",		DHCLIENT},
 		{"include",		INCLUDE},
-		{"integer",		INTEGER},
-		{"no",			NO},
-		{"yes",			YES},
-		{"yesno",		YESNO}
+		{"interface",		INTERFACE},
+		{"slaac",		SLAAC},
+		{"static",		STATIC}
 	};
 	const struct keywords	*p;
 
@@ -623,7 +570,7 @@ parse_config(char *filename)
 	}
 	topfile = file;
 
-	LIST_INIT(&conf->group_list);
+	LIST_INIT(&conf->policy_list);
 
 	yyparse();
 	errors = file->errors;
@@ -726,41 +673,37 @@ symget(const char *nam)
 	return (NULL);
 }
 
-struct group *
-conf_get_group(char *name)
+struct interface_policy *
+conf_get_policy(char *name)
 {
-	struct group	*g;
-	size_t		n;
+	struct interface_policy	*p;
+	size_t			 n;
 
-	LIST_FOREACH(g, &conf->group_list, entry) {
-		if (strcmp(name, g->name) == 0)
-			return (g);
+	LIST_FOREACH(p, &conf->policy_list, entry) {
+		if (strcmp(name, policy->name) == 0)
+			return (p);
 	}
 
-	g = calloc(1, sizeof(*g));
-	if (g == NULL)
-		errx(1, "get_group: calloc");
-	n = strlcpy(g->name, name, sizeof(g->name));
-	if (n >= sizeof(g->name))
-		errx(1, "get_group: name too long");
+	p = calloc(1, sizeof(*p));
+	if (p == NULL)
+		errx(1, "get_policy: calloc");
+	n = strlcpy(p->name, name, sizeof(p->name));
+	if (n >= sizeof(policy->name))
+		errx(1, "get_policy: name too long");
 
-	/* Inherit attributes set in global section. */
-	g->yesno = conf->yesno;
-	g->integer = conf->integer;
+	LIST_INSERT_HEAD(&conf->policy_list, p, entry);
 
-	LIST_INSERT_HEAD(&conf->group_list, g, entry);
-
-	return (g);
+	return (p);
 }
 
 void
 clear_config(struct netcfgd_conf *xconf)
 {
-	struct group	*g;
+	struct interface_policy	*p;
 
-	while ((g = LIST_FIRST(&xconf->group_list)) != NULL) {
-		LIST_REMOVE(g, entry);
-		free(g);
+	while ((p = LIST_FIRST(&xconf->policy_list)) != NULL) {
+		LIST_REMOVE(p, entry);
+		free(p);
 	}
 
 	free(xconf);

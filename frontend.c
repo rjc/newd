@@ -174,7 +174,7 @@ frontend_dispatch_main(int fd, short event, void *bula)
 {
 	static struct netcfgd_conf	*nconf;
 	struct imsg		 imsg;
-	struct group		*g;
+	struct interface_policy	*p;
 	struct imsgev		*iev = bula;
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	int			 n, shut = 0;
@@ -233,13 +233,13 @@ frontend_dispatch_main(int fd, short event, void *bula)
 			    NULL)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct netcfgd_conf));
-			LIST_INIT(&nconf->group_list);
+			LIST_INIT(&nconf->policy_list);
 			break;
 		case IMSG_RECONF_GROUP:
-			if ((g = malloc(sizeof(struct group))) == NULL)
+			if ((p = malloc(sizeof(struct interface_policy))) == NULL)
 				fatal(NULL);
-			memcpy(g, imsg.data, sizeof(struct group));
-			LIST_INSERT_HEAD(&nconf->group_list, g, entry);
+			memcpy(p, imsg.data, sizeof(struct interface_policy));
+			LIST_INSERT_HEAD(&nconf->policy_list, p, entry);
 			break;
 		case IMSG_RECONF_END:
 			merge_config(frontend_conf, nconf);
@@ -318,12 +318,6 @@ void
 frontend_showinfo_ctl(struct ctl_conn *c)
 {
 	static struct ctl_frontend_info cfi;
-
-	cfi.yesno = frontend_conf->yesno;
-	cfi.integer = frontend_conf->integer;
-
-	memcpy(cfi.global_text, frontend_conf->global_text,
-	    sizeof(cfi.global_text));
 
 	imsg_compose_event(&c->iev, IMSG_CTL_SHOW_FRONTEND_INFO, 0, 0, -1,
 	    &cfi, sizeof(struct ctl_frontend_info));

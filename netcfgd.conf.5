@@ -19,18 +19,15 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .Dd $Mdocdate: March 11 2015 $
-.Dt NEWD.CONF 5
+.Dt NETCFGD.CONF 5
 .Os
 .Sh NAME
 .Nm netcfgd.conf
 .Nd Network Configuration Daemon configuration file
 .Sh DESCRIPTION
-The
-.Xr netcfgd 8
-daemon is a skeleton daemon implementing a privileged separated daemon
-in accord with current
-.Ox
-practices.
+.Nm
+defines the policies implemented by
+.Xr netcfgd 8 .
 .Sh SECTIONS
 The
 .Nm
@@ -42,12 +39,12 @@ configuration file.
 .It Sy Global Configuration
 Zero or more
 .Xr netcfgd 8
-attibutes.
-.It Sy Groups
-Named lists of
-zero or more
+attibutes that define the overall policy for
+.Xr netcfgd 8 .
+.It Sy Interfaces
+Lists of
 .Xr netcfgd 8
-attributes.
+attributes that define the policy relevant to the named network interface.
 .El
 .Pp
 Additional configuration files can be included with the
@@ -58,69 +55,36 @@ Macros can be defined that will later be expanded in context.
 Macro names must start with a letter, digit, or underscore,
 and may contain any of those characters.
 Macro names may not be reserved words (for example,
-.Ic group )
+.Ic interface )
 Macros are not expanded inside quotes.
 .Sh GLOBAL CONFIGURATION
 The global configuration section is a list of attribute specifications.
-.Pp
-Attributes with a
-.Sq global-
-prefix can be used
-.Em only
-in the global configuration section.
-These are
-.Pp
-.Bl -tag -width Ds -compact
-.It Ic global-text Ar string
-.El
-.Sh GROUPS
-A group is a named list of attributes, specified with
-.Bl -tag -width group-name
-.It Ic group Ar name { attribute list }
+.Sh INTERFACES
+An interface is a named list of attributes, specified with
+.Bl -tag -width interface-name
+.It interface Ar name { attribute list }
 .El
 .Pp
-Attibutes with the
-.Sq group-
-prefix can be used only a group.
-These are
+The possible
+.Ic interface
+attributes are
 .Pp
-.Bl -tag -width Ds -compact
-.It Ic group-v4address Ar IPv4address
-.Pp
-.It Ic group-v6address Ar IPv6address
-.El
-.Sh COMMON ATTRIBUTES
-Attributes with neither
-.Sq global-
-nor
-.Sq group-
-prefixes can be used in either or both global and group configuration
-sections.
-If used in only the global configuration section then the specification is
-inherited by all groups.
-If used in both the sections, the specification in the group will take
-precedence in that group.
-.Pp
-These are
-.Pp
-.Bl -tag -width Ds -compact
-.It Xo
-.Ic yesno
-.Pq Ic yes Ns | Ns Ic no
-.Xc
-.Pp
-.It Ic integer Ar integer
+.Bl -tag -width dhclient -compact
+.It Sy dhclient
+Accept proposals from dhclient.
+.It Sy slaac
+Accept proposals from slaac.
+.It Sy static
+Accept proposals from static configuration.
 .El
 .Sh EXAMPLE
 .Bd -literal -offset indent
 include "/etc/netcfgd.sub.conf"
-hi="5"
-integer=$hi
-yesno no;
-group Barrymore {
-	yesno yes;
-	integer 1;
-	group-v4address 1.2.3.4/32;
+dhcp="dhclient"
+interface ix0 {
+	$dhcp
+	slaac
+	static
 }
 .Ed
 .Sh FILES
