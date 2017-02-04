@@ -18,27 +18,17 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/sysctl.h>
-#include <sys/tree.h>
-#include <sys/uio.h>
+
 #include <netinet/in.h>
-#include <arpa/inet.h>
 #include <net/if.h>
-#include <net/if_dl.h>
-#include <net/if_types.h>
 #include <net/route.h>
-#include <err.h>
+
 #include <errno.h>
 #include <event.h>
-#include <fcntl.h>
 #include <imsg.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <limits.h>
 
 #include "log.h"
 #include "netcfgd.h"
