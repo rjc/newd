@@ -589,15 +589,12 @@ engine_set_source_state(struct imsg *imsg)
 	memcpy(&cpid, imsg->data, sizeof(cpid));
 
 	LIST_FOREACH(p, &engine_conf->policy_list, entry) {
-		log_warnx("p->ifindex %u cpid.ifindex %u", p->ifindex,
-		    cpid.ifindex);
-		if (p->ifindex != cpid.ifindex)
+		if (p->ifindex != cpid.ifindex && cpid.ifindex != 0)
 			continue;
 		if (cpid.source < 0) {
 			cpid.source = -cpid.source;
 			newstate = 0;
 		}
-		log_warnx("cpid.source %d", cpid.source);
 		switch (cpid.source) {
 		case DHCLIENT_PROPOSAL:
 			p->dhclient = newstate;
