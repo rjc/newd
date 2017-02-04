@@ -18,7 +18,6 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-
 #include <sys/socket.h>
 #include <sys/syslog.h>
 
@@ -79,8 +78,8 @@ engine_sig_handler(int sig, short event, void *arg)
 void
 engine(int debug, int verbose)
 {
-	struct event		 ev_sigint, ev_sigterm;
-	struct passwd		*pw;
+	struct event	 ev_sigint, ev_sigterm;
+	struct passwd	*pw;
 
 	engine_conf = config_new_empty();
 
@@ -176,11 +175,11 @@ engine_imsg_compose_frontend(int type, pid_t pid, void *data,
 void
 engine_dispatch_frontend(int fd, short event, void *bula)
 {
-	struct imsgev		*iev = bula;
-	struct imsgbuf		*ibuf;
-	struct imsg		 imsg;
-	ssize_t			 n;
-	int			 shut = 0, payload;
+	struct imsgev	*iev = bula;
+	struct imsgbuf	*ibuf;
+	struct imsg	 imsg;
+	ssize_t		 n;
+	int		 shut = 0, payload;
 
 	ibuf = &iev->ibuf;
 
@@ -205,7 +204,6 @@ engine_dispatch_frontend(int fd, short event, void *bula)
 
 		switch (imsg.hdr.type) {
 		case IMSG_CTL_LOG_LEVEL:
-			/* Already checked by frontend. */
 			memcpy(&payload, imsg.data, sizeof(payload));
 			log_setverbose(payload);
 			break;

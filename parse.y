@@ -221,11 +221,11 @@ lookup(char *s)
 {
 	/* This has to be sorted always. */
 	static const struct keywords keywords[] = {
-		{"dhclient",		DHCLIENT},
-		{"include",		INCLUDE},
-		{"interface",		INTERFACE},
-		{"slaac",		SLAAC},
-		{"static",		STATIC}
+		{"dhclient",	DHCLIENT},
+		{"include",	INCLUDE},
+		{"interface",	INTERFACE},
+		{"slaac",	SLAAC},
+		{"static",	STATIC}
 	};
 	const struct keywords	*p;
 

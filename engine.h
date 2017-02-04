@@ -24,5 +24,5 @@ struct proposal_entry {
 	struct imsg_v6proposal		*v6proposal;
 };
 
-void		 engine(int, int);
-int		 engine_imsg_compose_frontend(int, pid_t, void *, uint16_t);
+void	 engine(int, int);
+int	 engine_imsg_compose_frontend(int, pid_t, void *, uint16_t);

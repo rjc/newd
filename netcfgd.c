@@ -163,7 +163,7 @@ main(int argc, char *argv[])
 	else if (frontend_flag)
 		frontend(debug, cmd_opts & OPT_VERBOSE, sockname);
 
-	/* parse config file */
+	/* Parse the conf file. */
 	if ((main_conf = parse_config(conffile)) == NULL) {
 		exit(1);
 	}
@@ -221,7 +221,6 @@ main(int argc, char *argv[])
 	signal(SIGPIPE, SIG_IGN);
 
 	/* Setup pipes to children. */
-
 	if ((iev_frontend = malloc(sizeof(struct imsgev))) == NULL ||
 	    (iev_engine = malloc(sizeof(struct imsgev))) == NULL)
 		fatal(NULL);

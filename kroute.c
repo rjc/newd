@@ -17,7 +17,6 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-
 #include <sys/socket.h>
 
 #include <netinet/in.h>
@@ -58,7 +57,7 @@ kr_init(void)
 		return (-1);
 	}
 
-	/* not interested in my own messages */
+	/* Not interested in my own messages. */
 	if (setsockopt(kr_state.fd, SOL_SOCKET, SO_USELOOPBACK,
 	    &opt, sizeof(opt)) == -1)
 		log_warn("kr_init: setsockopt");	/* not fatal */
@@ -71,7 +70,7 @@ kr_init(void)
 		return (-1);
 	}
 
-	/* grow receive buffer, don't wanna miss messages */
+	/* Grow receive buffer, don't want to miss messages. */
 	optlen = sizeof(default_rcvbuf);
 	if (getsockopt(kr_state.fd, SOL_SOCKET, SO_RCVBUF,
 	    &default_rcvbuf, &optlen) == -1)
