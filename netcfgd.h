@@ -53,6 +53,7 @@ enum imsg_type {
 	IMSG_CTL_REPLY_V6PROPOSAL,
 	IMSG_CTL_SHOW_FRONTEND_INFO,
 	IMSG_CTL_SHOW_MAIN_INFO,
+	IMSG_CTL_SET_SOURCE_STATE,
 	IMSG_CTL_END,
 	IMSG_RECONF_CONF,
 	IMSG_RECONF_POLICY,
@@ -92,7 +93,7 @@ struct ctl_main_info {
 	char		text[NETCFGD_MAXTEXT];
 };
 
-struct ctl_show_proposal {
+struct ctl_policy_id {
 	unsigned int	ifindex;
 	int		source;
 };

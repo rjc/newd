@@ -291,6 +291,12 @@ control_dispatch_imsg(int fd, short event, void *bula)
 			    imsg.hdr.pid,
 			    imsg.data, imsg.hdr.len - IMSG_HEADER_SIZE);
 			break;
+		case IMSG_CTL_SET_SOURCE_STATE:
+			c->iev.ibuf.pid = imsg.hdr.pid;
+			frontend_imsg_compose_engine(imsg.hdr.type, 0,
+			    imsg.hdr.pid,
+			    imsg.data, imsg.hdr.len - IMSG_HEADER_SIZE);
+			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
 			    imsg.hdr.type);

@@ -51,9 +51,10 @@ void		 engine_process_v4proposal(struct imsg_v4proposal *);
 void		 engine_process_v6proposal(struct imsg_v6proposal *);
 void		 engine_kill_proposal(int);
 void		 engine_show_v4proposal(struct imsg *,
-		     struct imsg_v4proposal *, struct ctl_show_proposal *);
+		     struct imsg_v4proposal *, struct ctl_policy_id *);
 void		 engine_show_v6proposal(struct imsg *,
-		     struct imsg_v6proposal *, struct ctl_show_proposal *);
+		     struct imsg_v6proposal *, struct ctl_policy_id *);
+void		 engine_set_source_state(struct imsg *);
 
 struct netcfgd_conf	*engine_conf;
 struct imsgev		*iev_frontend;
@@ -218,6 +219,9 @@ engine_dispatch_frontend(int fd, short event, void *bula)
 		case IMSG_CTL_SHOW_PROPOSALS:
 			engine_showinfo_ctl(&imsg);
 			break;
+		case IMSG_CTL_SET_SOURCE_STATE:
+			engine_set_source_state(&imsg);
+			break;
 		default:
 			log_debug("%s: unexpected imsg %d", __func__,
 			    imsg.hdr.type);
@@ -357,19 +361,19 @@ engine_dispatch_main(int fd, short event, void *bula)
 void
 engine_showinfo_ctl(struct imsg *imsg)
 {
-	struct ctl_show_proposal	 csp;
-	struct proposal_entry		*p;
+	struct ctl_policy_id	 cpid;
+	struct proposal_entry	*p;
 
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_PROPOSALS:
-		memcpy(&csp, imsg->data, sizeof(csp));
+		memcpy(&cpid, imsg->data, sizeof(cpid));
 		TAILQ_FOREACH(p, &proposal_queue, entry) {
 			if (p->v4proposal != NULL)
 				engine_show_v4proposal(imsg, p->v4proposal,
-				    &csp);
+				    &cpid);
 			else if (p->v6proposal != NULL)
 				engine_show_v6proposal(imsg, p->v6proposal,
-				    &csp);
+				    &cpid);
 		}
 		engine_imsg_compose_frontend(IMSG_CTL_END, imsg->hdr.pid, NULL,
 		    0);
@@ -543,13 +547,13 @@ engine_kill_proposal(int xid)
 
 void
 engine_show_v4proposal(struct imsg *imsg, struct imsg_v4proposal *p,
-    struct ctl_show_proposal *csp)
+    struct ctl_policy_id *cpid)
 {
 	struct imsg_v4proposal	imsg_v4proposal;
 
-	if (csp->ifindex != 0 && p->index != csp->ifindex)
+	if (cpid->ifindex != 0 && p->index != cpid->ifindex)
 		return;
-	if (csp->source != 0 && csp->source != p->source)
+	if (cpid->source != 0 && cpid->source != p->source)
 		return;
 
 	memcpy(&imsg_v4proposal, p, sizeof(imsg_v4proposal));
@@ -559,16 +563,53 @@ engine_show_v4proposal(struct imsg *imsg, struct imsg_v4proposal *p,
 
 void
 engine_show_v6proposal(struct imsg *imsg, struct imsg_v6proposal *p,
-    struct ctl_show_proposal *csp)
+    struct ctl_policy_id *cpid)
 {
 	struct imsg_v6proposal	imsg_v6proposal;
 
-	if (csp->ifindex != 0 && p->index != csp->ifindex)
+	if (cpid->ifindex != 0 && p->index != cpid->ifindex)
 		return;
-	if (csp->source != 0 && csp->source != p->source)
+	if (cpid->source != 0 && cpid->source != p->source)
 		return;
 
 	memcpy(&imsg_v6proposal, p, sizeof(imsg_v6proposal));
 	engine_imsg_compose_frontend(IMSG_CTL_REPLY_V6PROPOSAL, imsg->hdr.pid,
 	    &imsg_v6proposal, sizeof(imsg_v6proposal));
+}
+
+void
+engine_set_source_state(struct imsg *imsg)
+{
+	struct ctl_policy_id	 cpid;
+	struct interface_policy	*p;
+	int			 newstate = 1;
+
+	log_warnx("set_source_state");
+
+	memcpy(&cpid, imsg->data, sizeof(cpid));
+
+	LIST_FOREACH(p, &engine_conf->policy_list, entry) {
+		log_warnx("p->ifindex %u cpid.ifindex %u", p->ifindex,
+		    cpid.ifindex);
+		if (p->ifindex != cpid.ifindex)
+			continue;
+		if (cpid.source < 0) {
+			cpid.source = -cpid.source;
+			newstate = 0;
+		}
+		log_warnx("cpid.source %d", cpid.source);
+		switch (cpid.source) {
+		case DHCLIENT_PROPOSAL:
+			p->dhclient = newstate;
+			break;
+		case SLAAC_PROPOSAL:
+			p->slaac = newstate;
+			break;
+		case STATIC_PROPOSAL:
+			p->statik = newstate;
+			break;
+		default:
+			break;
+		}
+	}
 }
