@@ -43,8 +43,8 @@ void		 engine_sig_handler(int sig, short, void *);
 void		 engine_dispatch_frontend(int, short, void *);
 void		 engine_dispatch_main(int, short, void *);
 void		 engine_showinfo_ctl(struct imsg *);
-void		 engine_process_v4proposal(struct imsg_v4proposal *);
-void		 engine_process_v6proposal(struct imsg_v6proposal *);
+int		 engine_process_v4proposal(struct imsg *);
+int		 engine_process_v6proposal(struct imsg *);
 void		 engine_kill_proposal(int);
 void		 engine_show_v4proposal(struct imsg *,
 		     struct imsg_v4proposal *, struct ctl_policy_id *);
@@ -172,6 +172,14 @@ engine_imsg_compose_frontend(int type, pid_t pid, void *data,
 	    data, datalen));
 }
 
+int
+engine_imsg_compose_main(int type, pid_t pid, void *data,
+    uint16_t datalen)
+{
+	return (imsg_compose_event(iev_main, type, 0, pid, -1,
+	    data, datalen));
+}
+
 void
 engine_dispatch_frontend(int fd, short event, void *bula)
 {
@@ -241,8 +249,6 @@ engine_dispatch_main(int fd, short event, void *bula)
 	struct interface_policy		*p;
 	struct imsgev			*iev = bula;
 	struct imsgbuf			*ibuf;
-	struct imsg_v4proposal		*p4;
-	struct imsg_v6proposal		*p6;
 	ssize_t				 n;
 	int				 shut = 0;
 	unsigned int			 index;
@@ -324,18 +330,20 @@ engine_dispatch_main(int fd, short event, void *bula)
 			nconf = NULL;
 			break;
 		case IMSG_SEND_V4PROPOSAL:
-			if ((p4 = malloc(sizeof(struct imsg_v4proposal))) ==
-			    NULL)
-				fatal(NULL);
-			memcpy(p4, imsg.data, sizeof(struct imsg_v4proposal));
-			engine_process_v4proposal(p4);
+			if (engine_process_v4proposal(&imsg) == 0) {
+				engine_imsg_compose_main(
+				    IMSG_EXECUTE_V4PROPOSAL,
+				    imsg.hdr.pid, imsg.data,
+				    sizeof(struct imsg_v4proposal));
+			}
 			break;
 		case IMSG_SEND_V6PROPOSAL:
-			if ((p6 = malloc(sizeof(struct imsg_v6proposal))) ==
-			    NULL)
-				fatal(NULL);
-			memcpy(p6, imsg.data, sizeof(struct imsg_v6proposal));
-			engine_process_v6proposal(p6);
+			if (engine_process_v6proposal(&imsg) == 0) {
+				engine_imsg_compose_main(
+				    IMSG_EXECUTE_V6PROPOSAL,
+				    imsg.hdr.pid, imsg.data,
+				    sizeof(struct imsg_v6proposal));
+			}
 			break;
 		default:
 			log_debug("%s: unexpected imsg %d", __func__,
@@ -379,51 +387,56 @@ engine_showinfo_ctl(struct imsg *imsg)
 	}
 }
 
-void
-engine_process_v4proposal(struct imsg_v4proposal *imsg)
+int
+engine_process_v4proposal(struct imsg *imsg)
 {
 	char			 ifname[IF_NAMESIZE];
 	struct proposal_entry	*p;
 	struct interface_policy	*ifp;
+	struct imsg_v4proposal	*p4;
+
+	if ((p4 = malloc(sizeof(struct imsg_v4proposal))) == NULL)
+		fatal(NULL);
+	memcpy(p4, imsg->data, sizeof(struct imsg_v4proposal));
 
 	/* Discard proposals for unconfigured interfaces or sources. */
 	LIST_FOREACH(ifp, &engine_conf->policy_list, entry) {
-		if (ifp->ifindex == imsg->index) {
-			if (imsg->source == DHCLIENT_PROPOSAL &&
+		if (ifp->ifindex == p4->index) {
+			if (p4->source == DHCLIENT_PROPOSAL &&
 			    ifp->dhclient == 0) {
 				ifp = NULL;
 				log_warnx("'%s' not configured for dhclient",
-				    if_indextoname(imsg->index, ifname));
+				    if_indextoname(p4->index, ifname));
 
 			}
-			else if (imsg->source == STATIC_PROPOSAL &&
+			else if (p4->source == STATIC_PROPOSAL &&
 			    ifp->statik == 0) {
 				ifp = NULL;
 				log_warnx("'%s' not configured for static v4",
-				    if_indextoname(imsg->index, ifname));
+				    if_indextoname(p4->index, ifname));
 			}
 			break;
 		}
 	}
 	if (ifp == NULL) {
 		log_warnx("'%s' proposal can't be accepted",
-		    if_indextoname(imsg->index, ifname));
-		return;
+		    if_indextoname(p4->index, ifname));
+		return (1);
 	}
 
 	/* Discard duplicate proposals. */
 	TAILQ_FOREACH(p, &proposal_queue, entry) {
-		if (p->v4proposal->xid == imsg->xid) {
+		if (p->v4proposal->xid == p4->xid) {
 			free(imsg);
 			log_warnx("proposal already received");
-			return;
+			return (1);
 		}
 	}
 
 	/* Remove superseded proposal. */
 	TAILQ_FOREACH(p, &proposal_queue, entry) {
-		if ((p->v4proposal->index == imsg->index) &&
-		    (p->v4proposal->source == imsg->source)) {
+		if ((p->v4proposal->index == p4->index) &&
+		    (p->v4proposal->source == p4->source)) {
 			log_warnx("proposal being superseded");
 			break;
 		}
@@ -447,56 +460,63 @@ engine_process_v4proposal(struct imsg_v4proposal *imsg)
 	p = malloc(sizeof(struct proposal_entry));
 	if (p == NULL)
 		fatal(NULL);
-	p->v4proposal = imsg;
+	p->v4proposal = p4;
 
 	TAILQ_INSERT_HEAD(&proposal_queue, p, entry);
+
+	return (0);
 }
 
-void
-engine_process_v6proposal(struct imsg_v6proposal *imsg)
+int
+engine_process_v6proposal(struct imsg *imsg)
 {
 	char			 ifname[IF_NAMESIZE];
 	struct proposal_entry	*p;
 	struct interface_policy	*ifp;
+	struct imsg_v6proposal	*p6;
+
+	if ((p6 = malloc(sizeof(struct imsg_v6proposal))) == NULL)
+		fatal(NULL);
+	memcpy(p6, imsg->data, sizeof(struct imsg_v6proposal));
 
 	/* Discard proposals for unconfigured interfaces or sources. */
 	LIST_FOREACH(ifp, &engine_conf->policy_list, entry) {
-		if (ifp->ifindex == imsg->index) {
-			if (imsg->source == SLAAC_PROPOSAL &&
+		if (ifp->ifindex == p6->index) {
+			if (p6->source == SLAAC_PROPOSAL &&
 			    ifp->dhclient == 0) {
 				ifp = NULL;
 				log_warnx("'%s' not configured for slaac",
-				    if_indextoname(imsg->index, ifname));
+				    if_indextoname(p6->index, ifname));
 
 			}
-			else if (imsg->source == STATIC_PROPOSAL &&
+			else if (p6->source == STATIC_PROPOSAL &&
 			    ifp->statik == 0) {
 				ifp = NULL;
 				log_warnx("'%s' not configured for static v6",
-				    if_indextoname(imsg->index, ifname));
+				    if_indextoname(p6->index, ifname));
 			}
 			break;
 		}
 	}
 	if (ifp == NULL) {
 		log_warnx("'%s' proposal can't be accepted",
-		    if_indextoname(imsg->index, ifname));
-		return;
+		    if_indextoname(p6->index, ifname));
+		return (1);
 	}
 
 	/* Discard duplicate proposals. */
 	TAILQ_FOREACH(p, &proposal_queue, entry) {
-		if (p->v4proposal->xid == imsg->xid) {
+		if (p->v4proposal->xid == p6->xid) {
 			free(imsg);
 			log_warnx("proposal already received");
-			return;
+			return (1);
 		}
 	}
 
 	/* Remove superseded proposal. */
 	TAILQ_FOREACH(p, &proposal_queue, entry) {
-		if ((p->v6proposal->index == imsg->index) &&
-		    (p->v6proposal->source == imsg->source)) {
+		if ((p->v6proposal->index == p6->index) &&
+		    (p->v6proposal->source == p6->source)) {
 			log_warnx("proposal being superseded");
 			break;
 		}
@@ -520,9 +540,11 @@ engine_process_v6proposal(struct imsg_v6proposal *imsg)
 	p = malloc(sizeof(struct proposal_entry));
 	if (p == NULL)
 		fatal(NULL);
-	p->v6proposal = imsg;
+	p->v6proposal = p6;
 
 	TAILQ_INSERT_HEAD(&proposal_queue, p, entry);
+
+	return (0);
 }
 
 void

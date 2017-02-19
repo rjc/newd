@@ -426,6 +426,12 @@ main_dispatch_engine(int fd, short event, void *bula)
 			break;
 
 		switch (imsg.hdr.type) {
+		case IMSG_EXECUTE_V4PROPOSAL:
+			v4_execute_proposal(&imsg);
+			break;
+		case IMSG_EXECUTE_V6PROPOSAL:
+			v6_execute_proposal(&imsg);
+			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
 			    imsg.hdr.type);

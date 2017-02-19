@@ -1,7 +1,8 @@
 #	$OpenBSD$
 
 PROG=	netcfgd
-SRCS=	control.c engine.c frontend.c kroute.c log.c netcfgd.c parse.y printconf.c
+SRCS=	control.c engine.c frontend.c kroute.c log.c netcfgd.c \
+	netcfgd_v4.c netcfgd_v6.c parse.y printconf.c
 
 MAN=	netcfgd.8 netcfgd.conf.5
 

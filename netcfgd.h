@@ -60,7 +60,9 @@ enum imsg_type {
 	IMSG_RECONF_END,
 	IMSG_SOCKET_IPC,
 	IMSG_SEND_V4PROPOSAL,
-	IMSG_SEND_V6PROPOSAL
+	IMSG_SEND_V6PROPOSAL,
+	IMSG_EXECUTE_V4PROPOSAL,
+	IMSG_EXECUTE_V6PROPOSAL
 };
 
 enum {
@@ -161,3 +163,9 @@ int			 cmdline_symset(char *);
 
 /* kroute.c */
 int	kr_init(void);
+
+/* v4.c	*/
+void	v4_execute_proposal(struct imsg *);
+
+/* v6.c	*/
+void	v6_execute_proposal(struct imsg *);

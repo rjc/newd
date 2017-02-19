@@ -1,8 +1,7 @@
 /*	$OpenBSD$	*/
 
 /*
- * Copyright (c) 2017 Kenneth R Westerback <krw@openbsd.org>
- * Copyright (c) 2004, 2005 Esben Norby <norby@openbsd.org>
+ * Copyright 2017 Kenneth R Westerback <krw@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,13 +16,20 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <sys/socket.h>
+#include <sys/uio.h>
 
-struct proposal_entry {
-	TAILQ_ENTRY(proposal_entry)	 entry;
-	struct imsg_v4proposal		*v4proposal;
-	struct imsg_v6proposal		*v6proposal;
-};
+#include <net/if.h>
+#include <netinet/in.h>
 
-void	 engine(int, int);
-int	 engine_imsg_compose_frontend(int, pid_t, void *, uint16_t);
-int	 engine_imsg_compose_main(int, pid_t, void *, uint16_t);
+#include <event.h>
+#include <imsg.h>
+#include <log.h>
+
+#include "netcfgd.h"
+
+void
+v6_execute_proposal(struct imsg *imsg)
+{
+	log_warnx("Execting a v4 proposal");
+}
