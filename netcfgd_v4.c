@@ -41,5 +41,5 @@ v4_execute_proposal(struct imsg *imsg)
 	 * 6) Update resolv.conf.
 	 */
 
-	log_warnx("Executing v6 proposal");
+	log_warnx("Executing v4 proposal");
 }
