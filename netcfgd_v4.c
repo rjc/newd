@@ -31,5 +31,15 @@
 void
 v4_execute_proposal(struct imsg *imsg)
 {
+	/*
+	 * Steps from dhclient:
+	 * 1) Delete addresses.
+	 * 2) Flush routes.
+	 * 3) Set MTU.
+	 * 4) Add address.
+	 * 5) Add static routes (including default route.).
+	 * 6) Update resolv.conf.
+	 */
+
 	log_warnx("Executing v6 proposal");
 }
