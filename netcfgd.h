@@ -103,7 +103,6 @@ struct ctl_policy_id {
 struct imsg_v4proposal {
 	uint8_t		rtstatic[128];
 	uint8_t		rtsearch[128];
-	struct in_addr	gateway;
 	struct in_addr	ifa;
 	struct in_addr	netmask;
 	struct in_addr	dns1;
@@ -112,6 +111,7 @@ struct imsg_v4proposal {
 	struct in_addr	dns4;
 	int		xid;
 	unsigned int	index;
+	int		rdomain;
 	int		source;
 	int		mtu;
 	int		addrs;
@@ -132,6 +132,7 @@ struct imsg_v6proposal {
 	struct in6_addr	dns4;
 	int		xid;
 	unsigned int	index;
+	int		rdomain;
 	int		source;
 	int		mtu;
 	int		addrs;
@@ -162,7 +163,16 @@ struct netcfgd_conf	*parse_config(char *);
 int			 cmdline_symset(char *);
 
 /* kroute.c */
+struct kr_state {
+	pid_t			pid;
+	int			route_fd;
+	int			inet_fd;
+	struct event		ev;
+};
+extern struct kr_state	kr_state;
+
 int	kr_init(void);
+int	kr_get_rtaddrs(int, struct sockaddr *, struct sockaddr **);
 
 /* v4.c	*/
 void	v4_execute_proposal(struct imsg *);

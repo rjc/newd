@@ -32,14 +32,10 @@
 #include "log.h"
 #include "netcfgd.h"
 
-struct {
-	pid_t			pid;
-	int			fd;
-	struct event		ev;
-} kr_state;
+struct kr_state	kr_state;
 
 void	kr_dispatch_msg(int, short, void *);
-int	get_rtaddrs(int, struct sockaddr *, struct sockaddr **);
+int	kr_get_rtaddrs(int, struct sockaddr *, struct sockaddr **);
 void	forward_v4proposal(struct rt_msghdr *, struct sockaddr **);
 void	forward_v6proposal(struct rt_msghdr *, struct sockaddr **);
 void	copy_sockaddr_in(struct in_addr *, struct sockaddr *);
@@ -51,20 +47,20 @@ kr_init(void)
 	int		opt = 0, rcvbuf, default_rcvbuf, rtfilter;
 	socklen_t	optlen;
 
-	if ((kr_state.fd = socket(AF_ROUTE,
+	if ((kr_state.route_fd = socket(AF_ROUTE,
 	    SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, AF_INET)) == -1) {
-		log_warn("kr_init: socket");
+		log_warn("kr_init: route socket");
 		return (-1);
 	}
 
 	/* Not interested in my own messages. */
-	if (setsockopt(kr_state.fd, SOL_SOCKET, SO_USELOOPBACK,
+	if (setsockopt(kr_state.route_fd, SOL_SOCKET, SO_USELOOPBACK,
 	    &opt, sizeof(opt)) == -1)
 		log_warn("kr_init: setsockopt");	/* not fatal */
 
 	/* Only care about proposals. */
 	rtfilter = ROUTE_FILTER(RTM_PROPOSAL);
-	if (setsockopt(kr_state.fd, PF_ROUTE, ROUTE_MSGFILTER,
+	if (setsockopt(kr_state.route_fd, PF_ROUTE, ROUTE_MSGFILTER,
 	    &rtfilter, sizeof(rtfilter)) == -1) {
 		log_warn("setsockopt(ROUTE_MSGFILTER): %s", strerror(errno));
 		return (-1);
@@ -72,20 +68,25 @@ kr_init(void)
 
 	/* Grow receive buffer, don't want to miss messages. */
 	optlen = sizeof(default_rcvbuf);
-	if (getsockopt(kr_state.fd, SOL_SOCKET, SO_RCVBUF,
+	if (getsockopt(kr_state.route_fd, SOL_SOCKET, SO_RCVBUF,
 	    &default_rcvbuf, &optlen) == -1)
 		log_warn("kr_init getsockopt SOL_SOCKET SO_RCVBUF");
 	else
 		for (rcvbuf = NETCFGD_MAX_RTSOCK_BUF;
 		    rcvbuf > default_rcvbuf &&
-		    setsockopt(kr_state.fd, SOL_SOCKET, SO_RCVBUF,
+		    setsockopt(kr_state.route_fd, SOL_SOCKET, SO_RCVBUF,
 		    &rcvbuf, sizeof(rcvbuf)) == -1 && errno == ENOBUFS;
 		    rcvbuf /= 2)
 			;	/* nothing */
 
+	if ((kr_state.inet_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		log_warn("kr_init: inet socket");
+		return (-1);
+	}
+
 	kr_state.pid = getpid();
 
-	event_set(&kr_state.ev, kr_state.fd, EV_READ | EV_PERSIST,
+	event_set(&kr_state.ev, kr_state.route_fd, EV_READ | EV_PERSIST,
 	    kr_dispatch_msg, NULL);
 	event_add(&kr_state.ev, NULL);
 
@@ -104,7 +105,7 @@ kr_dispatch_msg(int fd, short event, void *bula)
 	size_t			 len, offset;
 	int			 v6;
 
-	if ((n = read(kr_state.fd, &buf, sizeof(buf))) == -1) {
+	if ((n = read(kr_state.route_fd, &buf, sizeof(buf))) == -1) {
 		if (errno == EAGAIN || errno == EINTR)
 			return;
 		log_warn("dispatch_rtmsg: read error");
@@ -129,7 +130,7 @@ kr_dispatch_msg(int fd, short event, void *bula)
 			continue;
 
 		sa = (struct sockaddr *)(next + rtm->rtm_hdrlen);
-		v6 = get_rtaddrs(rtm->rtm_addrs, sa, rti_info);
+		v6 = kr_get_rtaddrs(rtm->rtm_addrs, sa, rti_info);
 
 		switch (rtm->rtm_type) {
 		case RTM_PROPOSAL:
@@ -153,7 +154,7 @@ kr_dispatch_msg(int fd, short event, void *bula)
     (((a) & (sizeof(long) - 1)) ? (1 + ((a) | (sizeof(long) - 1))) : (a))
 
 int
-get_rtaddrs(int addrs, struct sockaddr *sa, struct sockaddr **rti_info)
+kr_get_rtaddrs(int addrs, struct sockaddr *sa, struct sockaddr **rti_info)
 {
 	int	i, v6 = 1;
 
@@ -203,7 +204,6 @@ forward_v4proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 		    sizeof(proposal.rtsearch));
 	}
 
-	copy_sockaddr_in(&proposal.gateway, rti_info[RTAX_GATEWAY]);
 	copy_sockaddr_in(&proposal.ifa, rti_info[RTAX_IFA]);
 	copy_sockaddr_in(&proposal.netmask, rti_info[RTAX_NETMASK]);
 	copy_sockaddr_in(&proposal.dns1, rti_info[RTAX_DNS1]);
