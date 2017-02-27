@@ -247,8 +247,10 @@ main(int argc, char *argv[])
 	if (kr_init() == -1)
 		fatalx("kr_init failed");
 
+#if 0
 	if (pledge("rpath stdio sendfd", NULL) == -1)
 		fatal("pledge");
+#endif
 
 	event_dispatch();
 

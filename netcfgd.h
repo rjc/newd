@@ -105,10 +105,7 @@ struct imsg_v4proposal {
 	uint8_t		rtsearch[128];
 	struct in_addr	ifa;
 	struct in_addr	netmask;
-	struct in_addr	dns1;
-	struct in_addr	dns2;
-	struct in_addr	dns3;
-	struct in_addr	dns4;
+	struct in_addr	dns[4];
 	int		xid;
 	unsigned int	index;
 	int		rdomain;
@@ -117,7 +114,6 @@ struct imsg_v4proposal {
 	int		addrs;
 	int		inits;
 	int		flags;
-	int		rtsearch_encoded;
 };
 
 struct imsg_v6proposal {
@@ -126,10 +122,7 @@ struct imsg_v6proposal {
 	struct in6_addr	gateway;
 	struct in6_addr	ifa;
 	struct in6_addr	netmask;
-	struct in6_addr	dns1;
-	struct in6_addr	dns2;
-	struct in6_addr	dns3;
-	struct in6_addr	dns4;
+	struct in6_addr	dns[4];
 	int		xid;
 	unsigned int	index;
 	int		rdomain;

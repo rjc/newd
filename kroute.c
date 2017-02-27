@@ -134,8 +134,6 @@ kr_dispatch_msg(int fd, short event, void *bula)
 
 		switch (rtm->rtm_type) {
 		case RTM_PROPOSAL:
-			log_warnx("I see a %s RTM_PROPOSAL from %d!",
-			    v6 ? "IPv6" : "IPv4", rtm->rtm_priority);
 			if (v6)
 				forward_v6proposal(rtm, rti_info);
 			else
@@ -198,18 +196,17 @@ forward_v4proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	if (rti_info[RTAX_SEARCH] != NULL) {
 		struct sockaddr_rtsearch *rtsearch;
 		rtsearch = (struct sockaddr_rtsearch *)rti_info[RTAX_SEARCH];
-		if (rtsearch->sr_family == AF_INET6)
-			proposal.rtsearch_encoded = 1;
 		memcpy(&proposal.rtsearch, rtsearch->sr_search,
 		    sizeof(proposal.rtsearch));
+	}
+	if (rti_info[RTAX_DNS] != NULL) {
+		struct sockaddr_rtdns *rtdns;
+		rtdns = (struct sockaddr_rtdns *)rti_info[RTAX_DNS];
+		memcpy(&proposal.dns, rtdns->sr_dns, sizeof(proposal.dns));
 	}
 
 	copy_sockaddr_in(&proposal.ifa, rti_info[RTAX_IFA]);
 	copy_sockaddr_in(&proposal.netmask, rti_info[RTAX_NETMASK]);
-	copy_sockaddr_in(&proposal.dns1, rti_info[RTAX_DNS1]);
-	copy_sockaddr_in(&proposal.dns2, rti_info[RTAX_DNS2]);
-	copy_sockaddr_in(&proposal.dns3, rti_info[RTAX_DNS3]);
-	copy_sockaddr_in(&proposal.dns4, rti_info[RTAX_DNS4]);
 
 	main_imsg_compose_engine(IMSG_SEND_V4PROPOSAL, 0, &proposal,
 	    sizeof(proposal));
@@ -242,19 +239,18 @@ forward_v6proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	if (rti_info[RTAX_SEARCH] != NULL) {
 		struct sockaddr_rtsearch *rtsearch;
 		rtsearch = (struct sockaddr_rtsearch *)rti_info[RTAX_SEARCH];
-		if (rtsearch->sr_family == AF_INET6)
-			proposal.rtsearch_encoded = 1;
 		memcpy(&proposal.rtsearch, rtsearch->sr_search,
 		    sizeof(proposal.rtsearch));
+	}
+	if (rti_info[RTAX_DNS] != NULL) {
+		struct sockaddr_rtdns *rtdns;
+		rtdns = (struct sockaddr_rtdns *)rti_info[RTAX_DNS];
+		memcpy(&proposal.dns, rtdns->sr_dns, sizeof(proposal.dns));
 	}
 
 	copy_sockaddr_in6(&proposal.gateway, rti_info[RTAX_GATEWAY]);
 	copy_sockaddr_in6(&proposal.ifa, rti_info[RTAX_IFA]);
 	copy_sockaddr_in6(&proposal.netmask, rti_info[RTAX_NETMASK]);
-	copy_sockaddr_in6(&proposal.dns1, rti_info[RTAX_DNS1]);
-	copy_sockaddr_in6(&proposal.dns2, rti_info[RTAX_DNS2]);
-	copy_sockaddr_in6(&proposal.dns3, rti_info[RTAX_DNS3]);
-	copy_sockaddr_in6(&proposal.dns4, rti_info[RTAX_DNS4]);
 }
 
 void
