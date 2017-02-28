@@ -101,11 +101,11 @@ struct ctl_policy_id {
 };
 
 struct imsg_v4proposal {
-	uint8_t		rtstatic[128];
-	uint8_t		rtsearch[128];
+	uint8_t		rtstatic[RTSTATIC_LEN];
+	uint8_t		rtsearch[RTSEARCH_LEN];
+	uint8_t		rtdns[RTDNS_LEN];
 	struct in_addr	ifa;
 	struct in_addr	netmask;
-	struct in_addr	dns[4];
 	int		xid;
 	unsigned int	index;
 	int		rdomain;
@@ -117,12 +117,12 @@ struct imsg_v4proposal {
 };
 
 struct imsg_v6proposal {
-	uint8_t		rtstatic[128];
-	uint8_t		rtsearch[128];
+	uint8_t		rtstatic[RTSTATIC_LEN];
+	uint8_t		rtsearch[RTSEARCH_LEN];
+	uint8_t		rtdns[RTDNS_LEN];
 	struct in6_addr	gateway;
 	struct in6_addr	ifa;
 	struct in6_addr	netmask;
-	struct in6_addr	dns[4];
 	int		xid;
 	unsigned int	index;
 	int		rdomain;

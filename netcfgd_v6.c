@@ -20,6 +20,8 @@
 #include <sys/uio.h>
 
 #include <net/if.h>
+#include <net/route.h>
+
 #include <netinet/in.h>
 
 #include <event.h>

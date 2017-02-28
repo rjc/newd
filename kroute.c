@@ -190,7 +190,7 @@ forward_v4proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	if (rti_info[RTAX_STATIC] != NULL) {
 		struct sockaddr_rtstatic *rtstatic;
 		rtstatic = (struct sockaddr_rtstatic *)rti_info[RTAX_STATIC];
-		memcpy(&proposal.rtstatic, rtstatic->sr_static,
+		memcpy(proposal.rtstatic, rtstatic->sr_static,
 		    sizeof(proposal.rtstatic));
 	}
 	if (rti_info[RTAX_SEARCH] != NULL) {
@@ -202,7 +202,7 @@ forward_v4proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	if (rti_info[RTAX_DNS] != NULL) {
 		struct sockaddr_rtdns *rtdns;
 		rtdns = (struct sockaddr_rtdns *)rti_info[RTAX_DNS];
-		memcpy(&proposal.dns, rtdns->sr_dns, sizeof(proposal.dns));
+		memcpy(proposal.rtdns, rtdns->sr_dns, sizeof(proposal.rtdns));
 	}
 
 	copy_sockaddr_in(&proposal.ifa, rti_info[RTAX_IFA]);
@@ -245,7 +245,7 @@ forward_v6proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	if (rti_info[RTAX_DNS] != NULL) {
 		struct sockaddr_rtdns *rtdns;
 		rtdns = (struct sockaddr_rtdns *)rti_info[RTAX_DNS];
-		memcpy(&proposal.dns, rtdns->sr_dns, sizeof(proposal.dns));
+		memcpy(proposal.rtdns, rtdns->sr_dns, sizeof(proposal.rtdns));
 	}
 
 	copy_sockaddr_in6(&proposal.gateway, rti_info[RTAX_GATEWAY]);

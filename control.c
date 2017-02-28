@@ -21,6 +21,7 @@
 
 #include <net/if.h>
 #include <netinet/in.h>
+#include <net/route.h>
 
 #include <errno.h>
 #include <event.h>

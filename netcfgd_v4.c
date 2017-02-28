@@ -44,7 +44,10 @@
 #include "netcfgd.h"
 
 void	v4_flush_routes(struct imsg_v4proposal *);
-void	v4_add_static_routes(struct imsg_v4proposal *);
+void	v4_add_routes(struct imsg_v4proposal *);
+void	v4_add_direct_route(int, struct in_addr, struct in_addr, struct in_addr);
+void	v4_add_route(int, struct in_addr, struct in_addr, struct in_addr,
+	    struct in_addr, int, int);
 void	v4_resolv_conf_contents(struct imsg_v4proposal *v4proposal);
 
 void	v4_delete_route(struct rt_msghdr *);
@@ -142,7 +145,7 @@ v4_execute_proposal(struct imsg *imsg)
 		log_warn("SIOCAIFADDR failed (%s)", inet_ntoa(addr));
 
 	/* 5) Add static routes (including default route.). */
-	v4_add_static_routes(&v4proposal);
+	v4_add_routes(&v4proposal);
 
 	/* 6) Update resolv.conf. */
 	v4_resolv_conf_contents(&v4proposal);
@@ -285,135 +288,161 @@ v4_check_route_label(struct sockaddr_rtlabel *label)
 	return (ROUTE_LABEL_NETCFGD_LIVE);
 }
 
+
 void
-v4_add_static_routes(struct imsg_v4proposal *v4proposal)
+v4_add_route(int rdomain, struct in_addr dest_addr, struct in_addr mask_addr,
+    struct in_addr gateway_addr, struct in_addr ifa_addr, int addrs,
+    int flags)
 {
-	struct iovec		iov[6];
-	struct sockaddr_in	dest, netmask, gateway, ifa;
 	struct rt_msghdr	rtm;
+	struct sockaddr_in	dest, gateway, mask, ifa;
 	struct sockaddr_rtlabel label;
-	uint8_t		       *src;
-	size_t			bytes, saddrlen, srclen;
-	int			bits, i, iovcnt;
-
-	memset(&dest, 0, sizeof(dest));
-	memset(&netmask, 0, sizeof(netmask));
-	memset(&gateway, 0, sizeof(gateway));
-	memset(&ifa, 0, sizeof(ifa));
-
-	saddrlen = sizeof(dest.sin_addr.s_addr);
-
-	dest.sin_len = netmask.sin_len = gateway.sin_len = ifa.sin_len =
-	    sizeof(dest);
-	dest.sin_family = netmask.sin_family = gateway.sin_family =
-	    ifa.sin_family = AF_INET;
-
-	ifa.sin_addr.s_addr = v4proposal->ifa.s_addr;
-
-	/* The order *MUST* be RTM+DEST+GATEWAY+NETMASK[+IFA][+LABEL]! */
-	iov[0].iov_base = &rtm;
-	iov[0].iov_len = sizeof(rtm);
-	iov[1].iov_base = &dest;
-	iov[1].iov_len = sizeof(dest);
-	iov[2].iov_base = &gateway;
-	iov[2].iov_len = sizeof(gateway);
-	iov[3].iov_base = &netmask;
-	iov[3].iov_len = sizeof(netmask);
+	struct iovec		iov[6];
+	int			iovcnt = 0;
 
 	/* Build RTM header */
+
 	memset(&rtm, 0, sizeof(rtm));
 
 	rtm.rtm_version = RTM_VERSION;
 	rtm.rtm_type = RTM_ADD;
-	rtm.rtm_tableid = v4proposal->rdomain;
+	rtm.rtm_tableid = rdomain;
 	rtm.rtm_priority = RTP_NONE;
+	rtm.rtm_msglen = sizeof(rtm);
+	rtm.rtm_addrs = addrs;
+	rtm.rtm_flags = flags;
 
-	src = v4proposal->rtstatic;
-	srclen = *src++;
-	while (srclen) {
+	iov[iovcnt].iov_base = &rtm;
+	iov[iovcnt++].iov_len = sizeof(rtm);
 
-		bits = *src++;
-		srclen--;
+	if (addrs & RTA_DST) {
+		memset(&dest, 0, sizeof(dest));
+
+		dest.sin_len = sizeof(dest);
+		dest.sin_family = AF_INET;
+		dest.sin_addr.s_addr = dest_addr.s_addr;
+
+		rtm.rtm_msglen += sizeof(dest);
+
+		iov[iovcnt].iov_base = &dest;
+		iov[iovcnt++].iov_len = sizeof(dest);
+	}
+
+	if (addrs & RTA_GATEWAY) {
+		memset(&gateway, 0, sizeof(gateway));
+
+		gateway.sin_len = sizeof(gateway);
+		gateway.sin_family = AF_INET;
+		gateway.sin_addr.s_addr = gateway_addr.s_addr;
+
+		rtm.rtm_msglen += sizeof(gateway);
+
+		iov[iovcnt].iov_base = &gateway;
+		iov[iovcnt++].iov_len = sizeof(gateway);
+	}
+
+	if (addrs & RTA_NETMASK) {
+		memset(&mask, 0, sizeof(mask));
+
+		mask.sin_len = sizeof(mask);
+		mask.sin_family = AF_INET;
+		mask.sin_addr.s_addr = mask_addr.s_addr;
+
+		rtm.rtm_msglen += sizeof(mask);
+
+		iov[iovcnt].iov_base = &mask;
+		iov[iovcnt++].iov_len = sizeof(mask);
+	}
+
+	if (addrs & RTA_IFA) {
+		memset(&ifa, 0, sizeof(ifa));
+
+		ifa.sin_len = sizeof(ifa);
+		ifa.sin_family = AF_INET;
+		ifa.sin_addr.s_addr = ifa_addr.s_addr;
+
+		rtm.rtm_msglen += sizeof(ifa);
+
+		iov[iovcnt].iov_base = &ifa;
+		iov[iovcnt++].iov_len = sizeof(ifa);
+	}
+
+	/* Add our label so we can identify the route as our creation. */
+	memset(&label, 0, sizeof(label));
+	label.sr_len = sizeof(label);
+	label.sr_family = AF_UNSPEC;
+	snprintf(label.sr_label, sizeof(label.sr_label), "NETCFGD %d",
+	    (int)getpid());
+
+	rtm.rtm_addrs |= RTA_LABEL;
+	rtm.rtm_msglen += sizeof(label);
+	iov[iovcnt].iov_base = &label;
+	iov[iovcnt++].iov_len = sizeof(label);
+
+	if (writev(kr_state.route_fd, iov, iovcnt) == -1)
+		log_warn("v4_add_route");
+}
+
+void
+v4_add_direct_route(int rdomain, struct in_addr dest, struct in_addr mask,
+    struct in_addr iface)
+{
+	struct in_addr ifa = { INADDR_ANY };
+
+	v4_add_route(rdomain, dest, mask, iface, ifa,
+	    RTA_DST | RTA_NETMASK | RTA_GATEWAY, RTF_CLONING | RTF_STATIC);
+}
+
+void
+v4_add_routes(struct imsg_v4proposal *v4proposal)
+{
+	struct in_addr	 dest, netmask, gateway, iface;
+	int		 bits, i;
+	unsigned int	 bytes;
+
+	memcpy(&iface.s_addr, &v4proposal->ifa, sizeof(iface));
+
+	i = 1;
+	while (i < v4proposal->rtstatic[0]) {
+		bits = v4proposal->rtstatic[i++];
 		bytes = (bits + 7) / 8;
-		if (srclen < bytes || bytes > saddrlen) {
-			log_warnx("invalid static routes");
+
+		if (bytes > sizeof(netmask))
 			return;
-		}
+		else if (i + bytes > v4proposal->rtstatic[0])
+			return;
 
-		memset(&dest.sin_addr.s_addr, 0, saddrlen);
-		memcpy(&dest.sin_addr.s_addr, src, bytes);
-		src += bytes;
-		srclen -= bytes;
-
-		/* Construct netmask from value of 'bits'. */
 		if (bits)
-			netmask.sin_addr.s_addr = htonl(0xffffffff <<
-			    (32 - bits));
+			netmask.s_addr = htonl(0xffffffff << (32 - bits));
 		else
-			netmask.sin_addr.s_addr = INADDR_ANY;
+			netmask.s_addr = INADDR_ANY;
 
-		dest.sin_addr.s_addr = dest.sin_addr.s_addr &
-		    netmask.sin_addr.s_addr;
+		memset(&dest, 0, sizeof(dest));
+		memcpy(&dest.s_addr, &v4proposal->rtstatic[i], bytes);
+		dest.s_addr = dest.s_addr & netmask.s_addr;
+		i += bytes;
 
-		if (sizeof(gateway.sin_addr.s_addr) > srclen) {
-			log_warnx("invalid static routes");
-			return;
-		}
-		memcpy(&gateway.sin_addr.s_addr, src, saddrlen);
-		src += saddrlen;
-		srclen -= saddrlen;
+		memcpy(&gateway, &v4proposal->rtstatic[i], sizeof(gateway));
+		i += sizeof(gateway);
 
-		iovcnt = 4;
-		rtm.rtm_msglen = sizeof(rtm) + sizeof(struct sockaddr_in) * 3;
-		rtm.rtm_addrs = RTA_DST | RTA_GATEWAY | RTA_NETMASK;
-		rtm.rtm_flags = RTF_STATIC;
-
-		if (gateway.sin_addr.s_addr == INADDR_ANY) {
-			/* Adding direct route. */
-			rtm.rtm_flags |= RTF_CLONING;
-			gateway.sin_addr.s_addr = v4proposal->ifa.s_addr;
-		} else {
-			/* Adding indirect route. */
-			rtm.rtm_addrs |= RTA_IFA;
-			rtm.rtm_flags |= RTF_GATEWAY;
-		}
-
-		if (rtm.rtm_addrs & RTA_IFA) {
-			rtm.rtm_msglen += sizeof(ifa);
-			iov[iovcnt].iov_base = &netmask;
-			iov[iovcnt].iov_len = sizeof(netmask);
-			iovcnt++;
-		}
-
-		/* Identify the route as our creation. */
-		memset(&label, 0, sizeof(label));
-		label.sr_len = sizeof(label);
-		label.sr_family = AF_UNSPEC;
-
-		i = snprintf(label.sr_label, sizeof(label.sr_label),
-		    "NETCFGD %d", (int)getpid());
-		if (i == -1) {
-			log_warn("creating route label");
-			return;
-		}
-
-		rtm.rtm_addrs |= RTA_LABEL;
-		rtm.rtm_msglen += sizeof(label);
-		iov[iovcnt].iov_base = &label;
-		iov[iovcnt].iov_len = sizeof(label);
-		iovcnt++;
-
-		if (writev(kr_state.route_fd, iov, iovcnt) == -1) {
-			log_warn("failed to add v4 static route (%d/%d)",
-			    kr_state.route_fd, iovcnt);
-		}
+		if (gateway.s_addr == INADDR_ANY)
+			v4_add_direct_route(v4proposal->rdomain, dest,
+			    netmask, iface);
+		else
+			v4_add_route(v4proposal->rdomain, dest, netmask,
+			    gateway, iface,
+			    RTA_DST | RTA_GATEWAY | RTA_NETMASK | RTA_IFA,
+			    RTF_GATEWAY | RTF_STATIC);
 	}
 }
 
 void
 v4_resolv_conf_contents(struct imsg_v4proposal *v4proposal)
 {
-	FILE *fp;
+	FILE		*fp;
+	struct in_addr	 server;
+	char		*src;
+	int		 i, servercnt;
 
 	fp = fopen("/etc/resolv.conf", "w");
 	if (fp == NULL) {
@@ -422,17 +451,16 @@ v4_resolv_conf_contents(struct imsg_v4proposal *v4proposal)
 	}
 
 	fprintf(fp, "# Generated by netcfgd\n");
-
 	if (strlen(v4proposal->rtsearch) > 0)
 		fprintf(fp, "search %s\n", v4proposal->rtsearch);
-	if (v4proposal->dns[0].s_addr != INADDR_ANY)
-		fprintf(fp, "nameserver %s\n", inet_ntoa(v4proposal->dns[0]));
-	if (v4proposal->dns[1].s_addr != INADDR_ANY)
-		fprintf(fp, "nameserver %s\n", inet_ntoa(v4proposal->dns[1]));
-	if (v4proposal->dns[2].s_addr != INADDR_ANY)
-		fprintf(fp, "nameserver %s\n", inet_ntoa(v4proposal->dns[2]));
-	if (v4proposal->dns[3].s_addr != INADDR_ANY)
-		fprintf(fp, "nameserver %s\n", inet_ntoa(v4proposal->dns[3]));
+
+	servercnt = v4proposal->rtdns[0] / sizeof(struct in_addr);
+	src = &v4proposal->rtdns[1];
+	for (i = 0; i < servercnt; i++) {
+		memcpy(&server.s_addr, src, sizeof(server.s_addr));
+		fprintf(fp, "nameserver %s\n", inet_ntoa(server));
+		src += sizeof(struct in_addr);
+	}
 
 	if (fflush(fp) == EOF)
 		log_warn("/etc/resolv.conf");
