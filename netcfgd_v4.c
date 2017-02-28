@@ -71,8 +71,6 @@ v4_execute_proposal(struct imsg *imsg)
 	struct ifaddrs *ifap, *ifa;
 	struct sockaddr_in *in;
 
-	log_warnx("Executing v4 proposal");
-
 	memcpy(&v4proposal, imsg->data, sizeof(v4proposal));
 	if (if_indextoname(v4proposal.index, name) == NULL)
 		fatal("if_indextoname(%d) failed", v4proposal.index);
