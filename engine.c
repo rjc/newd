@@ -402,14 +402,14 @@ engine_process_v4proposal(struct imsg *imsg)
 	/* Discard proposals for unconfigured interfaces or sources. */
 	LIST_FOREACH(ifp, &engine_conf->policy_list, entry) {
 		if (ifp->ifindex == p4->index) {
-			if (p4->source == DHCLIENT_PROPOSAL &&
+			if (p4->source == RTP_PROPOSAL_DHCLIENT &&
 			    ifp->dhclient == 0) {
 				ifp = NULL;
 				log_warnx("'%s' not configured for dhclient",
 				    if_indextoname(p4->index, ifname));
 
 			}
-			else if (p4->source == STATIC_PROPOSAL &&
+			else if (p4->source == RTP_PROPOSAL_STATIC &&
 			    ifp->statik == 0) {
 				ifp = NULL;
 				log_warnx("'%s' not configured for static v4",
@@ -482,14 +482,14 @@ engine_process_v6proposal(struct imsg *imsg)
 	/* Discard proposals for unconfigured interfaces or sources. */
 	LIST_FOREACH(ifp, &engine_conf->policy_list, entry) {
 		if (ifp->ifindex == p6->index) {
-			if (p6->source == SLAAC_PROPOSAL &&
+			if (p6->source == RTP_PROPOSAL_SLAAC &&
 			    ifp->dhclient == 0) {
 				ifp = NULL;
 				log_warnx("'%s' not configured for slaac",
 				    if_indextoname(p6->index, ifname));
 
 			}
-			else if (p6->source == STATIC_PROPOSAL &&
+			else if (p6->source == RTP_PROPOSAL_STATIC &&
 			    ifp->statik == 0) {
 				ifp = NULL;
 				log_warnx("'%s' not configured for static v6",
@@ -613,13 +613,13 @@ engine_set_source_state(struct imsg *imsg)
 			newstate = 0;
 		}
 		switch (cpid.source) {
-		case DHCLIENT_PROPOSAL:
+		case RTP_PROPOSAL_DHCLIENT:
 			p->dhclient = newstate;
 			break;
-		case SLAAC_PROPOSAL:
+		case RTP_PROPOSAL_SLAAC:
 			p->slaac = newstate;
 			break;
-		case STATIC_PROPOSAL:
+		case RTP_PROPOSAL_STATIC:
 			p->statik = newstate;
 			break;
 		default:

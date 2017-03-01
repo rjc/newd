@@ -113,7 +113,6 @@ struct imsg_v4proposal {
 	int		mtu;
 	int		addrs;
 	int		inits;
-	int		flags;
 };
 
 struct imsg_v6proposal {
@@ -130,8 +129,6 @@ struct imsg_v6proposal {
 	int		mtu;
 	int		addrs;
 	int		inits;
-	int		flags;
-	int		rtsearch_encoded;
 };
 
 extern uint32_t	 cmd_opts;

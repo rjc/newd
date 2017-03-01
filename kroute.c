@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <event.h>
 #include <imsg.h>
+#include <stddef.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -178,7 +179,6 @@ forward_v4proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 
 	proposal.addrs = rtm->rtm_addrs;
 	proposal.inits = rtm->rtm_inits;
-	proposal.flags = rtm->rtm_flags;
 	proposal.xid = rtm->rtm_seq;
 	proposal.index = rtm->rtm_index;
 	proposal.source = rtm->rtm_priority;
@@ -190,19 +190,25 @@ forward_v4proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	if (rti_info[RTAX_STATIC] != NULL) {
 		struct sockaddr_rtstatic *rtstatic;
 		rtstatic = (struct sockaddr_rtstatic *)rti_info[RTAX_STATIC];
-		memcpy(proposal.rtstatic, rtstatic->sr_static,
-		    sizeof(proposal.rtstatic));
+		proposal.rtstatic[0] = rtstatic->sr_len -
+		    offsetof(struct sockaddr_rtstatic, sr_static);
+		memcpy(&proposal.rtstatic[1], rtstatic->sr_static,
+		    proposal.rtstatic[0]);
 	}
 	if (rti_info[RTAX_SEARCH] != NULL) {
 		struct sockaddr_rtsearch *rtsearch;
 		rtsearch = (struct sockaddr_rtsearch *)rti_info[RTAX_SEARCH];
-		memcpy(&proposal.rtsearch, rtsearch->sr_search,
-		    sizeof(proposal.rtsearch));
+		log_warnx("forward sr_search: %zu '%s'",
+		    strlen(rtsearch->sr_search), rtsearch->sr_search);
+		strlcpy(proposal.rtsearch, (char *)rtsearch->sr_search,
+		   sizeof(proposal.rtsearch));
 	}
 	if (rti_info[RTAX_DNS] != NULL) {
 		struct sockaddr_rtdns *rtdns;
 		rtdns = (struct sockaddr_rtdns *)rti_info[RTAX_DNS];
-		memcpy(proposal.rtdns, rtdns->sr_dns, sizeof(proposal.rtdns));
+		proposal.rtdns[0] = rtdns->sr_len -
+		   offsetof(struct sockaddr_rtdns, sr_dns);
+		memcpy(&proposal.rtdns[1], rtdns->sr_dns, proposal.rtdns[0]);
 	}
 
 	copy_sockaddr_in(&proposal.ifa, rti_info[RTAX_IFA]);
@@ -221,7 +227,6 @@ forward_v6proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 
 	proposal.addrs = rtm->rtm_addrs;
 	proposal.inits = rtm->rtm_inits;
-	proposal.flags = rtm->rtm_flags;
 	proposal.xid = rtm->rtm_seq;
 	proposal.index = rtm->rtm_index;
 	proposal.source = rtm->rtm_priority;
