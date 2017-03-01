@@ -674,7 +674,7 @@ conf_get_policy(char *name)
 	size_t			 n;
 
 	LIST_FOREACH(p, &conf->policy_list, entry) {
-		if (strcmp(name, policy->name) == 0)
+		if (strcmp(name, p->name) == 0)
 			return (p);
 	}
 
