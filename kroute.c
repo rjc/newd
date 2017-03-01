@@ -190,25 +190,25 @@ forward_v4proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	if (rti_info[RTAX_STATIC] != NULL) {
 		struct sockaddr_rtstatic *rtstatic;
 		rtstatic = (struct sockaddr_rtstatic *)rti_info[RTAX_STATIC];
-		proposal.rtstatic[0] = rtstatic->sr_len -
+		proposal.rtstatic_len = rtstatic->sr_len -
 		    offsetof(struct sockaddr_rtstatic, sr_static);
-		memcpy(&proposal.rtstatic[1], rtstatic->sr_static,
-		    proposal.rtstatic[0]);
+		memcpy(proposal.rtstatic, rtstatic->sr_static,
+		    proposal.rtstatic_len);
 	}
 	if (rti_info[RTAX_SEARCH] != NULL) {
 		struct sockaddr_rtsearch *rtsearch;
 		rtsearch = (struct sockaddr_rtsearch *)rti_info[RTAX_SEARCH];
-		log_warnx("forward sr_search: %zu '%s'",
-		    strlen(rtsearch->sr_search), rtsearch->sr_search);
-		strlcpy(proposal.rtsearch, (char *)rtsearch->sr_search,
-		   sizeof(proposal.rtsearch));
+		proposal.rtstatic_len = rtsearch->sr_len -
+		    offsetof(struct sockaddr_rtsearch, sr_search);
+		memcpy(proposal.rtsearch, rtsearch->sr_search,
+		   proposal.rtsearch_len);
 	}
 	if (rti_info[RTAX_DNS] != NULL) {
 		struct sockaddr_rtdns *rtdns;
 		rtdns = (struct sockaddr_rtdns *)rti_info[RTAX_DNS];
-		proposal.rtdns[0] = rtdns->sr_len -
+		proposal.rtdns_len = rtdns->sr_len -
 		   offsetof(struct sockaddr_rtdns, sr_dns);
-		memcpy(&proposal.rtdns[1], rtdns->sr_dns, proposal.rtdns[0]);
+		memcpy(proposal.rtdns, rtdns->sr_dns, proposal.rtdns_len);
 	}
 
 	copy_sockaddr_in(&proposal.ifa, rti_info[RTAX_IFA]);
