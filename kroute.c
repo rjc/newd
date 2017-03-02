@@ -198,7 +198,7 @@ forward_v4proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	if (rti_info[RTAX_SEARCH] != NULL) {
 		struct sockaddr_rtsearch *rtsearch;
 		rtsearch = (struct sockaddr_rtsearch *)rti_info[RTAX_SEARCH];
-		proposal.rtstatic_len = rtsearch->sr_len -
+		proposal.rtsearch_len = rtsearch->sr_len -
 		    offsetof(struct sockaddr_rtsearch, sr_search);
 		memcpy(proposal.rtsearch, rtsearch->sr_search,
 		   proposal.rtsearch_len);
