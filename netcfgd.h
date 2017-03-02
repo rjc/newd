@@ -122,9 +122,11 @@ struct imsg_v6proposal {
 	uint8_t		rtstatic[RTSTATIC_LEN];
 	uint8_t		rtsearch[RTSEARCH_LEN];
 	uint8_t		rtdns[RTDNS_LEN];
-	struct in6_addr	gateway;
 	struct in6_addr	ifa;
 	struct in6_addr	netmask;
+	unsigned int	rtstatic_len;
+	unsigned int	rtsearch_len;
+	unsigned int	rtdns_len;
 	int		xid;
 	unsigned int	index;
 	int		rdomain;
