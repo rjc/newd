@@ -395,8 +395,8 @@ void
 v4_add_routes(struct imsg_v4proposal *v4proposal)
 {
 	struct in_addr	 dest, netmask, gateway, iface;
-	int		 bits, i;
-	unsigned int	 bytes;
+	int		 bits;
+	unsigned int	 i, bytes;
 
 	memcpy(&iface.s_addr, &v4proposal->ifa, sizeof(iface));
 

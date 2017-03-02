@@ -106,9 +106,9 @@ struct imsg_v4proposal {
 	uint8_t		rtdns[RTDNS_LEN];
 	struct in_addr	ifa;
 	struct in_addr	netmask;
-	int		rtstatic_len;
-	int		rtsearch_len;
-	int		rtdns_len;
+	unsigned int	rtstatic_len;
+	unsigned int	rtsearch_len;
+	unsigned int	rtdns_len;
 	int		xid;
 	unsigned int	index;
 	int		rdomain;
