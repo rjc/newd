@@ -41,6 +41,7 @@ void	forward_v4proposal(struct rt_msghdr *, struct sockaddr **);
 void	forward_v6proposal(struct rt_msghdr *, struct sockaddr **);
 void	copy_sockaddr_in(struct in_addr *, struct sockaddr *);
 void	copy_sockaddr_in6(struct in6_addr *, struct sockaddr *);
+void	ack_proposal(struct rt_msghdr *);
 
 int
 kr_init(void)
@@ -135,10 +136,15 @@ kr_dispatch_msg(int fd, short event, void *bula)
 
 		switch (rtm->rtm_type) {
 		case RTM_PROPOSAL:
+			if ((rtm->rtm_flags & RTF_PROTO1) != 0) {
+				log_warnx("Seeing RTF_PROTO1");
+				break;
+			}
 			if (v6)
 				forward_v6proposal(rtm, rti_info);
 			else
 				forward_v4proposal(rtm, rti_info);
+			ack_proposal(rtm);
 			break;
 		default:
 			/* ignore for now */
@@ -182,6 +188,7 @@ forward_v4proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	proposal.xid = rtm->rtm_seq;
 	proposal.index = rtm->rtm_index;
 	proposal.source = rtm->rtm_priority;
+	proposal.kill = (rtm->rtm_flags & RTF_UP) == 0;
 
 	if (proposal.inits & RTV_MTU) {
 		proposal.mtu = rtm->rtm_rmx.rmx_mtu;
@@ -230,6 +237,7 @@ forward_v6proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	proposal.xid = rtm->rtm_seq;
 	proposal.index = rtm->rtm_index;
 	proposal.source = rtm->rtm_priority;
+	proposal.kill = (rtm->rtm_flags & RTF_UP) == 0;
 
 	if (proposal.inits & RTV_MTU) {
 		proposal.mtu = rtm->rtm_rmx.rmx_mtu;
@@ -281,4 +289,31 @@ copy_sockaddr_in6(struct in6_addr *in6_addr, struct sockaddr *sa)
 	sa_in6 = (struct sockaddr_in6 *)sa;
 
 	memcpy(in6_addr, &sa_in6->sin6_addr, sizeof(*in6_addr));
+}
+
+void
+ack_proposal(struct rt_msghdr *rtm)
+{
+	struct rt_msghdr ack;
+	ssize_t len;
+
+	memset(&ack, 0, sizeof(ack));
+
+	log_warnx("Attempting to ACK proposal");
+
+	/* Acknowledge receipt of proposal. */
+	ack.rtm_version = RTM_VERSION;
+	ack.rtm_msglen = sizeof(ack);
+	ack.rtm_flags = RTF_PROTO1;
+	ack.rtm_type = RTM_PROPOSAL;
+	ack.rtm_index = rtm->rtm_index;
+	ack.rtm_priority = rtm->rtm_priority;
+	ack.rtm_seq = rtm->rtm_seq;
+	ack.rtm_tableid = rtm->rtm_tableid;
+
+	len = write(kr_state.route_fd, &ack, sizeof(ack));
+	if (len == -1)
+		log_warn("ACK proposal");
+	else
+		log_warnx("wrote %zd bytes to ACK proposal", len);
 }

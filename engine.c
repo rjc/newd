@@ -424,12 +424,18 @@ engine_process_v4proposal(struct imsg *imsg)
 		return (1);
 	}
 
-	/* Discard duplicate proposals. */
+	/* Discard duplicate proposals and proposals being killed. */
 	TAILQ_FOREACH(p, &proposal_queue, entry) {
 		if (p->v4proposal->xid == p4->xid) {
-			free(imsg);
-			log_warnx("proposal already received");
-			return (1);
+			if (p4->kill == 0) {
+				free(imsg);
+				log_warnx("proposal already received");
+				return (1);
+			} else {
+				log_warnx("proposal being killed");
+				TAILQ_REMOVE(&proposal_queue, p, entry);
+				return (0);
+			}
 		}
 	}
 
@@ -504,12 +510,18 @@ engine_process_v6proposal(struct imsg *imsg)
 		return (1);
 	}
 
-	/* Discard duplicate proposals. */
+	/* Discard duplicate proposals and proposals being killed. */
 	TAILQ_FOREACH(p, &proposal_queue, entry) {
-		if (p->v4proposal->xid == p6->xid) {
-			free(imsg);
-			log_warnx("proposal already received");
-			return (1);
+		if (p->v6proposal->xid == p6->xid) {
+			if (p6->kill == 0) {
+				free(imsg);
+				log_warnx("proposal already received");
+				return (1);
+			} else {
+				log_warnx("proposal being killed");
+				TAILQ_REMOVE(&proposal_queue, p, entry);
+				return (0);
+			}
 		}
 	}
 
