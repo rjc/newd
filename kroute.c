@@ -253,7 +253,6 @@ forward_v6proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 		memcpy(proposal.rtdns, rtdns->sr_dns, sizeof(proposal.rtdns));
 	}
 
-	copy_sockaddr_in6(&proposal.gateway, rti_info[RTAX_GATEWAY]);
 	copy_sockaddr_in6(&proposal.ifa, rti_info[RTAX_IFA]);
 	copy_sockaddr_in6(&proposal.netmask, rti_info[RTAX_NETMASK]);
 }
