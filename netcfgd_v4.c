@@ -21,6 +21,7 @@
 #include <sys/limits.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
+#include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/uio.h>
 
@@ -444,10 +445,12 @@ v4_add_routes(struct imsg_v4proposal *v4proposal)
 void
 v4_resolv_conf_contents(struct imsg_v4proposal *v4proposal)
 {
-	FILE		*fp;
+	struct stat	 sb;
 	struct in_addr	 server;
-	char		*src;
-	int		 i, servercnt;
+	FILE		*fp;
+	char		*src, *resolv_tail;
+	ssize_t		 tailn;
+	int		 i, servercnt, tailfd;
 
 	fp = fopen("/etc/resolv.conf", "w");
 	if (fp == NULL) {
@@ -472,6 +475,35 @@ v4_resolv_conf_contents(struct imsg_v4proposal *v4proposal)
 				src += sizeof(struct in_addr);
 			}
 		}
+
+		tailfd = open("/etc/resolv.conf.tail", O_RDONLY);
+		if (tailfd == -1) {
+			if (errno != ENOENT)
+				log_warn("resolv.conf.tail");
+		} else if (fstat(tailfd, &sb) == -1) {
+			log_warn("resolv.conf.tail");
+		} else {
+			if (sb.st_size > 0 && sb.st_size < SSIZE_MAX) {
+				resolv_tail = calloc(1, sb.st_size);
+				if (resolv_tail == NULL) {
+					log_warnx("no memory for "
+					    "resolv.conf.tail contents");
+					goto done;
+				}
+				tailn = read(tailfd, resolv_tail, sb.st_size);
+				if (tailn == -1)
+					log_warn("resolv.conf.tail");
+				else if (tailn == 0)
+					log_warnx("resolv.conf.tail: empty");
+				else if (tailn != sb.st_size)
+					log_warnx("resolv.conf.tail: short");
+				else
+					fprintf(fp, "%*s", (int)tailn,
+					    resolv_tail);
+			}
+done:
+			close(tailfd);
+		}
 	} else {
 		fprintf(fp, "# Killed by netcfgd\n");
 	}
@@ -479,6 +511,4 @@ v4_resolv_conf_contents(struct imsg_v4proposal *v4proposal)
 	if (fflush(fp) == EOF)
 		log_warn("/etc/resolv.conf");
 	fclose(fp);
-
-	/* XXX resolv.conf.tail */
 }
