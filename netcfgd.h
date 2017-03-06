@@ -56,7 +56,7 @@ enum imsg_type {
 	IMSG_CTL_SET_SOURCE_STATE,
 	IMSG_CTL_END,
 	IMSG_RECONF_CONF,
-	IMSG_RECONF_POLICY,
+	IMSG_RECONF_INTERFACE,
 	IMSG_RECONF_END,
 	IMSG_SOCKET_IPC,
 	IMSG_SEND_V4PROPOSAL,
@@ -71,18 +71,23 @@ enum {
 	PROC_FRONTEND
 } netcfgd_process;
 
-struct interface_policy {
-	LIST_ENTRY(interface_policy)	 entry;
+struct interface {
+	LIST_ENTRY(interface)	 entry;
 
-	char		name[IF_NAMESIZE];
-	unsigned int	ifindex;
-	int		dhclient;
-	int		slaac;
-	int		statik;
+	char			 name[IF_NAMESIZE];
+	unsigned int		 ifindex;
+	int			 dhclient;
+	int			 slaac;
+	int			 v4statik;
+	int			 v6statik;
+	struct imsg_v4proposal	*p_dhclient;
+	struct imsg_v4proposal	*p_v4statik;
+	struct imsg_v6proposal	*p_slaac;
+	struct imsg_v6proposal	*p_v6statik;
 };
 
 struct netcfgd_conf {
-	LIST_HEAD(, interface_policy)	policy_list;
+	LIST_HEAD(, interface)	interface_list;
 };
 
 struct ctl_frontend_info {
@@ -104,11 +109,13 @@ struct imsg_v4proposal {
 	uint8_t		rtstatic[RTSTATIC_LEN];
 	uint8_t		rtsearch[RTSEARCH_LEN];
 	uint8_t		rtdns[RTDNS_LEN];
+	uint8_t		altrtdns[RTDNS_LEN];
 	struct in_addr	ifa;
 	struct in_addr	netmask;
 	unsigned int	rtstatic_len;
 	unsigned int	rtsearch_len;
 	unsigned int	rtdns_len;
+	unsigned int	altrtdns_len;
 	int		xid;
 	unsigned int	index;
 	int		rdomain;
@@ -123,11 +130,13 @@ struct imsg_v6proposal {
 	uint8_t		rtstatic[RTSTATIC_LEN];
 	uint8_t		rtsearch[RTSEARCH_LEN];
 	uint8_t		rtdns[RTDNS_LEN];
+	uint8_t		altrtdns[RTDNS_LEN];
 	struct in6_addr	ifa;
 	struct in6_addr	netmask;
 	unsigned int	rtstatic_len;
 	unsigned int	rtsearch_len;
 	unsigned int	rtdns_len;
+	unsigned int	altrtdns_len;
 	int		xid;
 	unsigned int	index;
 	int		rdomain;

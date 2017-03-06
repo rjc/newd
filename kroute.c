@@ -64,7 +64,7 @@ kr_init(void)
 	rtfilter = ROUTE_FILTER(RTM_PROPOSAL);
 	if (setsockopt(kr_state.route_fd, PF_ROUTE, ROUTE_MSGFILTER,
 	    &rtfilter, sizeof(rtfilter)) == -1) {
-		log_warn("setsockopt(ROUTE_MSGFILTER): %s", strerror(errno));
+		log_warn("setsockopt(ROUTE_MSGFILTER)");
 		return (-1);
 	}
 
@@ -148,6 +148,7 @@ kr_dispatch_msg(int fd, short event, void *bula)
 			break;
 		default:
 			/* ignore for now */
+			log_warnx("ignoring RTM type %d", rtm->rtm_type);
 			break;
 		}
 	}
@@ -299,8 +300,6 @@ ack_proposal(struct rt_msghdr *rtm)
 
 	memset(&ack, 0, sizeof(ack));
 
-	log_warnx("Attempting to ACK proposal");
-
 	/* Acknowledge receipt of proposal. */
 	ack.rtm_version = RTM_VERSION;
 	ack.rtm_msglen = sizeof(ack);
@@ -314,6 +313,4 @@ ack_proposal(struct rt_msghdr *rtm)
 	len = write(kr_state.route_fd, &ack, sizeof(ack));
 	if (len == -1)
 		log_warn("ACK proposal");
-	else
-		log_warnx("wrote %zd bytes to ACK proposal", len);
 }

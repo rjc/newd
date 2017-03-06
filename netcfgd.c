@@ -532,15 +532,16 @@ main_reload(void)
 int
 main_imsg_send_config(struct netcfgd_conf *xconf)
 {
-	struct interface_policy	 *p;
+	struct interface	 *ifp;
 
 	/* Send fixed part of config to children. */
 	if (main_sendboth(IMSG_RECONF_CONF, xconf, sizeof(*xconf)) == -1)
 		return (-1);
 
 	/* Send the group list to children. */
-	LIST_FOREACH(p, &xconf->policy_list, entry) {
-		if (main_sendboth(IMSG_RECONF_POLICY, p, sizeof(*p)) == -1)
+	LIST_FOREACH(ifp, &xconf->interface_list, entry) {
+		if (main_sendboth(IMSG_RECONF_INTERFACE, ifp,
+			    sizeof(*ifp)) == -1)
 			return (-1);
 	}
 
@@ -595,18 +596,18 @@ main_showinfo_ctl(struct imsg *imsg)
 void
 merge_config(struct netcfgd_conf *conf, struct netcfgd_conf *xconf)
 {
-	struct interface_policy	*p;
+	struct interface	*ifp;
 
 	/* Remove & discard existing groups. */
-	while ((p = LIST_FIRST(&conf->policy_list)) != NULL) {
-		LIST_REMOVE(p, entry);
-		free(p);
+	while ((ifp = LIST_FIRST(&conf->interface_list)) != NULL) {
+		LIST_REMOVE(ifp, entry);
+		free(ifp);
 	}
 
 	/* Add new groups. */
-	while ((p = LIST_FIRST(&xconf->policy_list)) != NULL) {
-		LIST_REMOVE(p, entry);
-		LIST_INSERT_HEAD(&conf->policy_list, p, entry);
+	while ((ifp = LIST_FIRST(&xconf->interface_list)) != NULL) {
+		LIST_REMOVE(ifp, entry);
+		LIST_INSERT_HEAD(&conf->interface_list, ifp, entry);
 	}
 
 	free(xconf);
@@ -621,7 +622,7 @@ config_new_empty(void)
 	if (xconf == NULL)
 		fatal(NULL);
 
-	LIST_INIT(&xconf->policy_list);
+	LIST_INIT(&xconf->interface_list);
 
 	return (xconf);
 }

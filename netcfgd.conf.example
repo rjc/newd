@@ -1,5 +1,6 @@
 interface iwn0 {
 	dhclient
 	slaac
-	static
+	v4static
+	v6static
 }

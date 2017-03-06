@@ -140,7 +140,7 @@ engine(int debug, int verbose)
 __dead void
 engine_shutdown(void)
 {
-	struct proposal_entry	*p;
+	struct interface	*ifp;
 
 	/* Close pipes. */
 	msgbuf_clear(&iev_frontend->ibuf.w);
@@ -154,10 +154,12 @@ engine_shutdown(void)
 	free(iev_main);
 
 	/* Discard proposals. */
-	while ((p = TAILQ_FIRST(&proposal_queue)) != NULL) {
-		free(p->v4proposal);
-		free(p->v6proposal);
-		free(p);
+	while ((ifp = LIST_FIRST(&engine_conf->interface_list)) != NULL) {
+		free(ifp->p_dhclient);
+		free(ifp->p_v4statik);
+		free(ifp->p_slaac);
+		free(ifp->p_v6statik);
+		free(ifp);
 	}
 
 	log_info("engine exiting");
@@ -246,7 +248,7 @@ engine_dispatch_main(int fd, short event, void *bula)
 {
 	struct imsg			 imsg;
 	static struct netcfgd_conf	*nconf;
-	struct interface_policy		*p;
+	struct interface		*ifp;
 	struct imsgev			*iev = bula;
 	struct imsgbuf			*ibuf;
 	ssize_t				 n;
@@ -308,20 +310,18 @@ engine_dispatch_main(int fd, short event, void *bula)
 			if ((nconf = malloc(sizeof(struct netcfgd_conf))) == NULL)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct netcfgd_conf));
-			LIST_INIT(&nconf->policy_list);
+			LIST_INIT(&nconf->interface_list);
 			break;
-		case IMSG_RECONF_POLICY:
-			if ((p = malloc(sizeof(struct interface_policy)))
-			    == NULL)
+		case IMSG_RECONF_INTERFACE:
+			if ((ifp = malloc(sizeof(struct interface))) == NULL)
 				fatal(NULL);
-			memcpy(p, imsg.data,
-			    sizeof(struct interface_policy));
-			index = if_nametoindex(p->name);
+			memcpy(ifp, imsg.data, sizeof(struct interface));
+			index = if_nametoindex(ifp->name);
 			if (index == 0)
-				log_warnx("%s:%s", p->name, strerror(errno));
+				log_warn("%s", ifp->name);
 			else {
-				p->ifindex = index;
-				LIST_INSERT_HEAD(&nconf->policy_list, p,
+				ifp->ifindex = index;
+				LIST_INSERT_HEAD(&nconf->interface_list, ifp,
 				    entry);
 			}
 			break;
@@ -365,17 +365,23 @@ void
 engine_showinfo_ctl(struct imsg *imsg)
 {
 	struct ctl_policy_id	 cpid;
-	struct proposal_entry	*p;
+	struct interface	*ifp;
 
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_PROPOSALS:
 		memcpy(&cpid, imsg->data, sizeof(cpid));
-		TAILQ_FOREACH(p, &proposal_queue, entry) {
-			if (p->v4proposal != NULL)
-				engine_show_v4proposal(imsg, p->v4proposal,
+		LIST_FOREACH(ifp, &engine_conf->interface_list, entry) {
+			if (ifp->p_dhclient != NULL)
+				engine_show_v4proposal(imsg, ifp->p_dhclient,
 				    &cpid);
-			else if (p->v6proposal != NULL)
-				engine_show_v6proposal(imsg, p->v6proposal,
+			if (ifp->p_v4statik != NULL)
+				engine_show_v4proposal(imsg, ifp->p_v4statik,
+				    &cpid);
+			if (ifp->p_slaac != NULL)
+				engine_show_v6proposal(imsg, ifp->p_slaac,
+				    &cpid);
+			if (ifp->p_v6statik != NULL)
+				engine_show_v6proposal(imsg, ifp->p_v6statik,
 				    &cpid);
 		}
 		engine_imsg_compose_frontend(IMSG_CTL_END, imsg->hdr.pid, NULL,
@@ -391,84 +397,125 @@ int
 engine_process_v4proposal(struct imsg *imsg)
 {
 	char			 ifname[IF_NAMESIZE];
-	struct proposal_entry	*p;
-	struct interface_policy	*ifp;
+	struct interface	*ifp;
 	struct imsg_v4proposal	*p4;
+	uint8_t			*dst;
+	size_t			 len;
 
 	if ((p4 = malloc(sizeof(struct imsg_v4proposal))) == NULL)
 		fatal(NULL);
 	memcpy(p4, imsg->data, sizeof(struct imsg_v4proposal));
 
 	/* Discard proposals for unconfigured interfaces or sources. */
-	LIST_FOREACH(ifp, &engine_conf->policy_list, entry) {
+	LIST_FOREACH(ifp, &engine_conf->interface_list, entry) {
 		if (ifp->ifindex == p4->index) {
 			if (p4->source == RTP_PROPOSAL_DHCLIENT &&
 			    ifp->dhclient == 0) {
 				ifp = NULL;
-				log_warnx("'%s' not configured for dhclient",
+				log_warnx("%s not configured for dhclient",
 				    if_indextoname(p4->index, ifname));
 
 			}
 			else if (p4->source == RTP_PROPOSAL_STATIC &&
-			    ifp->statik == 0) {
+			    ifp->v4statik == 0) {
 				ifp = NULL;
-				log_warnx("'%s' not configured for static v4",
+				log_warnx("%s not configured for static v4",
 				    if_indextoname(p4->index, ifname));
 			}
 			break;
 		}
 	}
 	if (ifp == NULL) {
-		log_warnx("'%s' proposal can't be accepted",
+		log_warnx("'%s' proposals can't be accepted",
 		    if_indextoname(p4->index, ifname));
+		free(p4);
 		return (1);
 	}
 
-	/* Discard duplicate proposals and proposals being killed. */
-	TAILQ_FOREACH(p, &proposal_queue, entry) {
-		if (p->v4proposal->xid == p4->xid) {
-			if (p4->kill == 0) {
-				free(imsg);
-				log_warnx("proposal already received");
+	switch (p4->source) {
+	case RTP_PROPOSAL_DHCLIENT:
+		if (p4->kill) {
+			if (ifp->p_dhclient == NULL) {
+				log_warnx("no dhclient proposal to kill");
+				free(p4);
 				return (1);
-			} else {
-				log_warnx("proposal being killed");
-				TAILQ_REMOVE(&proposal_queue, p, entry);
-				return (0);
+			} else if (p4->xid != ifp->p_dhclient->xid) {
+				log_warnx("dhclient xid mismatch in kill");
+				free(p4);
+				return (1);
 			}
+			log_warnx("dhclient proposal killed");
+			free(ifp->p_dhclient);
+			free(p4);
+			ifp->p_dhclient = NULL;
+			return (0);
+		} else if (ifp->p_dhclient != NULL &&
+		    p4->xid == ifp->p_dhclient->xid) {
+			/* Discard duplicate proposals. */
+			log_warnx("duplicate dhclient proposal dscarded");
+			free(p4);
+			return (1);
+		} else {
+			if (ifp->p_dhclient != NULL) {
+				log_warnx("dhclient proposal superseded");
+				free(ifp->p_dhclient);
+			}
+			ifp->p_dhclient = p4;
+			if (ifp->p_v4statik != NULL) {
+				dst = &p4->rtdns[p4->rtdns_len];
+				len = sizeof(p4->rtdns) - p4->rtdns_len;
+				if (len > ifp->p_v4statik->rtdns_len)
+					len =  ifp->p_dhclient->rtdns_len;
+				memcpy(dst, ifp->p_v4statik->rtdns, len);
+				p4->rtdns_len += len;
+				/* XXX search? append? uniqueness? */
+			}
+			memcpy(imsg->data, p4, sizeof(struct imsg_v4proposal));
 		}
-	}
-
-	/* Remove superseded proposal. */
-	TAILQ_FOREACH(p, &proposal_queue, entry) {
-		if ((p->v4proposal->index == p4->index) &&
-		    (p->v4proposal->source == p4->source)) {
-			log_warnx("proposal being superseded");
-			break;
+		break;
+	case RTP_PROPOSAL_STATIC:
+		if (p4->kill) {
+			if (ifp->p_v4statik == NULL) {
+				log_warnx("no v4 static proposal to kill");
+				free(p4);
+				return (1);
+			} else if (p4->xid != ifp->p_v4statik->xid) {
+				log_warnx("v4 static xid mismatch in kill");
+				free(p4);
+				return (1);
+			}
+			log_warnx("v4 static proposal killed");
+			free(ifp->p_v4statik);
+			free(p4);
+			ifp->p_v4statik = NULL;
+			return (0);
+		} else if (ifp->p_v4statik &&
+		    p4->xid == ifp->p_v4statik->xid) {
+			/* Discard duplicate proposals. */
+			log_warnx("duplicate v4 static proposal dscarded");
+			free(p4);
+			return (1);
+		} else {
+			/* Supersede current dhclient proposal. */
+			log_warnx("v4 static proposal superseded");
+			free(ifp->p_v4statik);
+			ifp->p_v4statik = p4;
+			if (ifp->p_dhclient != NULL) {
+				dst = &p4->rtdns[p4->rtdns_len];
+				len = sizeof(p4->rtdns) - p4->rtdns_len;
+				if (len > ifp->p_dhclient->rtdns_len)
+					len =  ifp->p_dhclient->rtdns_len;
+				memcpy(dst, ifp->p_v4statik->rtdns, len);
+				p4->rtdns_len += len;
+				/* XXX search? append? uniqueness? */
+			}
+			memcpy(imsg->data, p4, sizeof(struct imsg_v4proposal));
 		}
+		break;
+	default:
+		log_warnx("Unknown v4 source: %d", p4->source);
+		return (1);
 	}
-	if (p != NULL)
-		TAILQ_REMOVE(&proposal_queue, p, entry);
-
-	/*
-	 * Take appropriate action on proposal contents.
-	 *
-	 * XXX - for now just discard old proposal. In future
-	 *       contents may impact actions taken on new
-	 *       proposal.
-	 */
-	if (p != NULL) {
-		free(p->v4proposal);
-		free(p);
-	}
-
-	/* Save new proposal. */
-	p = malloc(sizeof(struct proposal_entry));
-	if (p == NULL)
-		fatal(NULL);
-	p->v4proposal = p4;
-
-	TAILQ_INSERT_HEAD(&proposal_queue, p, entry);
 
 	return (0);
 }
@@ -477,16 +524,17 @@ int
 engine_process_v6proposal(struct imsg *imsg)
 {
 	char			 ifname[IF_NAMESIZE];
-	struct proposal_entry	*p;
-	struct interface_policy	*ifp;
+	struct interface	*ifp;
 	struct imsg_v6proposal	*p6;
+	uint8_t			*dst;
+	size_t			 len;
 
 	if ((p6 = malloc(sizeof(struct imsg_v6proposal))) == NULL)
 		fatal(NULL);
 	memcpy(p6, imsg->data, sizeof(struct imsg_v6proposal));
 
 	/* Discard proposals for unconfigured interfaces or sources. */
-	LIST_FOREACH(ifp, &engine_conf->policy_list, entry) {
+	LIST_FOREACH(ifp, &engine_conf->interface_list, entry) {
 		if (ifp->ifindex == p6->index) {
 			if (p6->source == RTP_PROPOSAL_SLAAC &&
 			    ifp->dhclient == 0) {
@@ -496,7 +544,7 @@ engine_process_v6proposal(struct imsg *imsg)
 
 			}
 			else if (p6->source == RTP_PROPOSAL_STATIC &&
-			    ifp->statik == 0) {
+			    ifp->v6statik == 0) {
 				ifp = NULL;
 				log_warnx("'%s' not configured for static v6",
 				    if_indextoname(p6->index, ifname));
@@ -505,56 +553,94 @@ engine_process_v6proposal(struct imsg *imsg)
 		}
 	}
 	if (ifp == NULL) {
-		log_warnx("'%s' proposal can't be accepted",
+		log_warnx("'%s' proposals can't be accepted",
 		    if_indextoname(p6->index, ifname));
+		free(p6);
 		return (1);
 	}
 
-	/* Discard duplicate proposals and proposals being killed. */
-	TAILQ_FOREACH(p, &proposal_queue, entry) {
-		if (p->v6proposal->xid == p6->xid) {
-			if (p6->kill == 0) {
-				free(imsg);
-				log_warnx("proposal already received");
+	switch (p6->source) {
+	case RTP_PROPOSAL_SLAAC:
+		if (p6->kill) {
+			if (ifp->p_slaac == NULL) {
+				log_warnx("no slaac proposal to kill");
+				free(p6);
 				return (1);
-			} else {
-				log_warnx("proposal being killed");
-				TAILQ_REMOVE(&proposal_queue, p, entry);
-				return (0);
+			} else if (p6->xid != ifp->p_slaac->xid) {
+				log_warnx("slaac xid mismatch in kill");
+				free(p6);
+				return (1);
 			}
+			log_warnx("slaac proposal killed");
+			free(ifp->p_slaac);
+			free(p6);
+			ifp->p_slaac = NULL;
+			return (0);
+		} else if (ifp->p_slaac != NULL &&
+		    p6->xid == ifp->p_slaac->xid) {
+			/* Discard duplicate proposals. */
+			log_warnx("duplicate slaac proposal dscarded");
+			free(p6);
+			return (1);
+		} else {
+			free(ifp->p_slaac);
+			ifp->p_slaac = p6;
+			log_warnx("slaac proposal superseded");
+			if (ifp->p_v6statik != NULL) {
+				dst = &p6->rtdns[p6->rtdns_len];
+				len = sizeof(p6->rtdns) - p6->rtdns_len;
+				if (len > ifp->p_v4statik->rtdns_len)
+					len =  ifp->p_dhclient->rtdns_len;
+				memcpy(dst, ifp->p_v6statik->rtdns, len);
+				p6->rtdns_len += len;
+				/* XXX search? append? uniqueness? */
+			}
+			memcpy(imsg->data, p6, sizeof(struct imsg_v6proposal));
 		}
-	}
-
-	/* Remove superseded proposal. */
-	TAILQ_FOREACH(p, &proposal_queue, entry) {
-		if ((p->v6proposal->index == p6->index) &&
-		    (p->v6proposal->source == p6->source)) {
-			log_warnx("proposal being superseded");
-			break;
+		break;
+	case RTP_PROPOSAL_STATIC:
+		if (p6->kill) {
+			if (ifp->p_v6statik == NULL) {
+				log_warnx("no v6 static proposal to kill");
+				free(p6);
+				return (1);
+			} else if (p6->xid != ifp->p_v6statik->xid) {
+				log_warnx("v6 static xid mismatch in kill");
+				free(p6);
+				return (1);
+			}
+			log_warnx("v6 static proposal killed");
+			free(ifp->p_v6statik);
+			free(p6);
+			ifp->p_v6statik = NULL;
+			return (0);
+		} else if (ifp->p_v6statik &&
+		    p6->xid == ifp->p_v6statik->xid) {
+			/* Discard duplicate proposals. */
+			log_warnx("duplicate v4 static proposal dscarded");
+			free(p6);
+			return (1);
+		} else {
+			/* Supersede current dhclient proposal. */
+			free(ifp->p_v6statik);
+			ifp->p_v6statik = p6;
+			log_warnx("v4 static proposal superseded");
+			if (ifp->p_slaac != NULL) {
+				dst = &p6->rtdns[p6->rtdns_len];
+				len = sizeof(p6->rtdns) - p6->rtdns_len;
+				if (len > ifp->p_slaac->rtdns_len)
+					len =  ifp->p_slaac->rtdns_len;
+				memcpy(dst, ifp->p_v6statik->rtdns, len);
+				p6->rtdns_len += len;
+				/* XXX search? append? uniqueness? */
+			}
+			memcpy(imsg->data, p6, sizeof(struct imsg_v6proposal));
 		}
+		break;
+	default:
+		log_warnx("Unknown v6 source: %d", p6->source);
+		return (1);
 	}
-	if (p != NULL)
-		TAILQ_REMOVE(&proposal_queue, p, entry);
-
-	/*
-	 * Take appropriate action on proposal contents.
-	 *
-	 * XXX - for now just discard old proposal. In future
-	 *       contents may impact actions taken on new
-	 *       proposal.
-	 */
-	if (p != NULL) {
-		free(p->v6proposal);
-		free(p);
-	}
-
-	/* Save new proposal. */
-	p = malloc(sizeof(struct proposal_entry));
-	if (p == NULL)
-		fatal(NULL);
-	p->v6proposal = p6;
-
-	TAILQ_INSERT_HEAD(&proposal_queue, p, entry);
 
 	return (0);
 }
@@ -562,16 +648,33 @@ engine_process_v6proposal(struct imsg *imsg)
 void
 engine_kill_proposal(int xid)
 {
-	struct proposal_entry *p;
+	struct interface *ifp;
 
-	TAILQ_FOREACH(p, &proposal_queue, entry) {
-		if ((p->v6proposal != NULL && p->v6proposal->xid == xid) ||
-		    (p->v4proposal != NULL && p->v4proposal->xid == xid))
+	LIST_FOREACH(ifp, &engine_conf->interface_list, entry) {
+		if (ifp->p_dhclient->xid == xid) {
+			free(ifp->p_dhclient);
+			ifp->p_dhclient = NULL;
 			break;
+		}
+		if (ifp->p_v4statik->xid == xid) {
+			free(ifp->p_v4statik);
+			ifp->p_v4statik = NULL;
+			break;
+		}
+		if (ifp->p_slaac->xid == xid) {
+			free(ifp->p_slaac);
+			ifp->p_slaac = NULL;
+			break;
+		}
+		if (ifp->p_v6statik->xid == xid) {
+			free(ifp->p_v6statik);
+			ifp->p_dhclient = NULL;
+			break;
+		}
 	}
 
-	if (p != NULL)
-		TAILQ_REMOVE(&proposal_queue, p, entry);
+	if (ifp == NULL)
+		log_warnx("No proposal with xid %0x to kill", xid);
 }
 
 void
@@ -610,15 +713,15 @@ void
 engine_set_source_state(struct imsg *imsg)
 {
 	struct ctl_policy_id	 cpid;
-	struct interface_policy	*p;
+	struct interface	*ifp;
 	int			 newstate = 1;
 
 	log_warnx("set_source_state");
 
 	memcpy(&cpid, imsg->data, sizeof(cpid));
 
-	LIST_FOREACH(p, &engine_conf->policy_list, entry) {
-		if (p->ifindex != cpid.ifindex && cpid.ifindex != 0)
+	LIST_FOREACH(ifp, &engine_conf->interface_list, entry) {
+		if (ifp->ifindex != cpid.ifindex && cpid.ifindex != 0)
 			continue;
 		if (cpid.source < 0) {
 			cpid.source = -cpid.source;
@@ -626,13 +729,14 @@ engine_set_source_state(struct imsg *imsg)
 		}
 		switch (cpid.source) {
 		case RTP_PROPOSAL_DHCLIENT:
-			p->dhclient = newstate;
+			ifp->dhclient = newstate;
 			break;
 		case RTP_PROPOSAL_SLAAC:
-			p->slaac = newstate;
+			ifp->slaac = newstate;
 			break;
 		case RTP_PROPOSAL_STATIC:
-			p->statik = newstate;
+			/* XXX v6statik */
+			ifp->v4statik = newstate;
 			break;
 		default:
 			break;

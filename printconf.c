@@ -33,17 +33,19 @@
 void
 print_config(struct netcfgd_conf *conf)
 {
-	struct interface_policy *p;
+	struct interface *ifp;
 
-	LIST_FOREACH(p, &conf->policy_list, entry) {
-		printf("interface %s {\n", p->name);
+	LIST_FOREACH(ifp, &conf->interface_list, entry) {
+		printf("interface %s {\n", ifp->name);
 
-		if (p->dhclient)
+		if (ifp->dhclient)
 			printf("\tdhclient\n");
-		if (p->slaac)
+		if (ifp->slaac)
 			printf("\tslaac\n");
-		if (p->statik)
-			printf("\tstatic\n");
+		if (ifp->v4statik)
+			printf("\tv4static\n");
+		if (ifp->v6statik)
+			printf("\tv6static\n");
 
 		printf("}\n");
 	}

@@ -146,15 +146,14 @@ v4_execute_proposal(struct imsg *imsg)
 			log_warn("SIOCAIFADDR failed (%s)", inet_ntoa(addr));
 	}
 
-	/* 5) Add static routes (including default route). */
 	if (v4proposal.kill == 0) {
+		/* 5) Add static routes (including default route). */
 		if ((v4proposal.addrs & RTA_STATIC) != 0)
 			v4_add_routes(&v4proposal);
+		/* 6) Update /etc/resolv.conf. */
+		if ((v4proposal.addrs & (RTA_SEARCH | RTA_DNS)) != 0)
+			v4_resolv_conf_contents(&v4proposal);
 	}
-
-	/* 6) Update resolv.conf. */
-	if ((v4proposal.addrs & (RTA_SEARCH | RTA_DNS)) != 0)
-		v4_resolv_conf_contents(&v4proposal);
 }
 
 void
@@ -445,11 +444,15 @@ v4_add_routes(struct imsg_v4proposal *v4proposal)
 void
 v4_resolv_conf_contents(struct imsg_v4proposal *v4proposal)
 {
+	char		 buf[INET6_ADDRSTRLEN];
 	struct stat	 sb;
 	struct in_addr	 server;
-	FILE		*fp;
-	char		*src, *resolv_tail;
+	struct in6_addr	 server6;
 	ssize_t		 tailn;
+	char		*resolv_tail;
+	FILE		*fp;
+	char		*src;
+	const char	*pbuf;
 	int		 i, servercnt, tailfd;
 
 	fp = fopen("/etc/resolv.conf", "w");
@@ -474,6 +477,19 @@ v4_resolv_conf_contents(struct imsg_v4proposal *v4proposal)
 				    inet_ntoa(server));
 				src += sizeof(struct in_addr);
 			}
+			servercnt = v4proposal->altrtdns_len /
+			    sizeof(struct in6_addr);
+			src = v4proposal->altrtdns;
+			for (i = 0; i < servercnt; i++) {
+				memcpy(&server6, src, sizeof(server6));
+				pbuf = inet_ntop(AF_INET6, &server6, buf,
+				    INET_ADDRSTRLEN);
+				if (pbuf)
+					fprintf(fp, "nameserver %s\n", buf);
+				else
+					log_warn("IPv6 nameserver");
+				src += sizeof(struct in6_addr);
+			}
 		}
 
 		tailfd = open("/etc/resolv.conf.tail", O_RDONLY);
@@ -484,7 +500,7 @@ v4_resolv_conf_contents(struct imsg_v4proposal *v4proposal)
 			log_warn("resolv.conf.tail");
 		} else {
 			if (sb.st_size > 0 && sb.st_size < SSIZE_MAX) {
-				resolv_tail = calloc(1, sb.st_size);
+				resolv_tail = malloc(sb.st_size + 1);
 				if (resolv_tail == NULL) {
 					log_warnx("no memory for "
 					    "resolv.conf.tail contents");
@@ -497,9 +513,10 @@ v4_resolv_conf_contents(struct imsg_v4proposal *v4proposal)
 					log_warnx("resolv.conf.tail: empty");
 				else if (tailn != sb.st_size)
 					log_warnx("resolv.conf.tail: short");
-				else
-					fprintf(fp, "%*s", (int)tailn,
-					    resolv_tail);
+				else {
+					resolv_tail[tailn] = '\0';
+					fprintf(fp, "%s", resolv_tail);
+				}
 			}
 done:
 			close(tailfd);

@@ -170,9 +170,9 @@ void
 frontend_dispatch_main(int fd, short event, void *bula)
 {
 	static struct netcfgd_conf	*nconf;
-	struct imsg		 imsg;
-	struct interface_policy	*p;
-	struct imsgev		*iev = bula;
+	struct imsg			 imsg;
+	struct interface		*ifp;
+	struct imsgev			*iev = bula;
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	int			 n, shut = 0;
 
@@ -230,13 +230,13 @@ frontend_dispatch_main(int fd, short event, void *bula)
 			    NULL)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct netcfgd_conf));
-			LIST_INIT(&nconf->policy_list);
+			LIST_INIT(&nconf->interface_list);
 			break;
-		case IMSG_RECONF_POLICY:
-			if ((p = malloc(sizeof(struct interface_policy))) == NULL)
+		case IMSG_RECONF_INTERFACE:
+			if ((ifp = malloc(sizeof(struct interface))) == NULL)
 				fatal(NULL);
-			memcpy(p, imsg.data, sizeof(struct interface_policy));
-			LIST_INSERT_HEAD(&nconf->policy_list, p, entry);
+			memcpy(ifp, imsg.data, sizeof(struct interface));
+			LIST_INSERT_HEAD(&nconf->interface_list, ifp, entry);
 			break;
 		case IMSG_RECONF_END:
 			merge_config(frontend_conf, nconf);

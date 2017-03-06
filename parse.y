@@ -83,9 +83,9 @@ void	 clear_config(struct netcfgd_conf *xconf);
 static struct netcfgd_conf	*conf;
 static int			 errors;
 
-static struct interface_policy	*policy;
+static struct interface		*interface;
 
-struct interface_policy	*conf_get_policy(char *);
+struct interface	*conf_get_interface(char *);
 
 typedef struct {
 	union {
@@ -98,7 +98,7 @@ typedef struct {
 %}
 
 %token	INCLUDE ERROR
-%token	INTERFACE DHCLIENT SLAAC STATIC
+%token	INTERFACE DHCLIENT SLAAC V4STATIC V6STATIC
 
 %token	<v.string>	STRING
 %token	<v.number>	NUMBER
@@ -168,9 +168,9 @@ nl		: '\n' optnl		/* one or more newlines */
 		;
 
 interface	: INTERFACE STRING {
-			policy = conf_get_policy($2);
+			interface = conf_get_interface($2);
 		} '{' optnl policyopts_l '}' {
-			policy = NULL;
+			interface = NULL;
 		}
 		;
 
@@ -179,13 +179,16 @@ policyopts_l	: policyopts_l policyoptsl nl
 		;
 
 policyoptsl	: DHCLIENT {
-			policy->dhclient = 1;
+			interface->dhclient = 1;
 		}
 		| SLAAC {
-			policy->slaac = 1;
+			interface->slaac = 1;
 		}
-		| STATIC {
-			policy->statik = 1;
+		| V4STATIC {
+			interface->v4statik = 1;
+		}
+		| V6STATIC {
+			interface->v6statik = 1;
 		}
 		;
 
@@ -227,7 +230,8 @@ lookup(char *s)
 		{"include",	INCLUDE},
 		{"interface",	INTERFACE},
 		{"slaac",	SLAAC},
-		{"static",	STATIC}
+		{"v4static",	V4STATIC},
+		{"v6static",	V6STATIC}
 	};
 	const struct keywords	*p;
 
@@ -564,7 +568,7 @@ parse_config(char *filename)
 	}
 	topfile = file;
 
-	LIST_INIT(&conf->policy_list);
+	LIST_INIT(&conf->interface_list);
 
 	yyparse();
 	errors = file->errors;
@@ -667,37 +671,41 @@ symget(const char *nam)
 	return (NULL);
 }
 
-struct interface_policy *
-conf_get_policy(char *name)
+struct interface *
+conf_get_interface(char *name)
 {
-	struct interface_policy	*p;
+	struct interface	*ifp;
 	size_t			 n;
 
-	LIST_FOREACH(p, &conf->policy_list, entry) {
-		if (strcmp(name, p->name) == 0)
-			return (p);
+	LIST_FOREACH(ifp, &conf->interface_list, entry) {
+		if (strcmp(name, ifp->name) == 0)
+			return (ifp);
 	}
 
-	p = calloc(1, sizeof(*p));
-	if (p == NULL)
-		errx(1, "get_policy: calloc");
-	n = strlcpy(p->name, name, sizeof(p->name));
-	if (n >= sizeof(policy->name))
-		errx(1, "get_policy: name too long");
+	ifp = calloc(1, sizeof(*ifp));
+	if (ifp == NULL)
+		errx(1, "get_interface: calloc");
+	n = strlcpy(ifp->name, name, sizeof(ifp->name));
+	if (n >= sizeof(interface->name))
+		errx(1, "get_interface: name too long");
 
-	LIST_INSERT_HEAD(&conf->policy_list, p, entry);
+	LIST_INSERT_HEAD(&conf->interface_list, ifp, entry);
 
-	return (p);
+	return (ifp);
 }
 
 void
 clear_config(struct netcfgd_conf *xconf)
 {
-	struct interface_policy	*p;
+	struct interface	*ifp;
 
-	while ((p = LIST_FIRST(&xconf->policy_list)) != NULL) {
-		LIST_REMOVE(p, entry);
-		free(p);
+	while ((ifp = LIST_FIRST(&xconf->interface_list)) != NULL) {
+		LIST_REMOVE(ifp, entry);
+		free(ifp->p_dhclient);
+		free(ifp->p_v4statik);
+		free(ifp->p_slaac);
+		free(ifp->p_v6statik);
+		free(ifp);
 	}
 
 	free(xconf);
