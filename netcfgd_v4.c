@@ -500,7 +500,7 @@ v4_resolv_conf_contents(struct imsg_v4proposal *v4proposal)
 			log_warn("resolv.conf.tail");
 		} else {
 			if (sb.st_size > 0 && sb.st_size < SSIZE_MAX) {
-				resolv_tail = malloc(sb.st_size + 1);
+				resolv_tail = malloc(sb.st_size);
 				if (resolv_tail == NULL) {
 					log_warnx("no memory for "
 					    "resolv.conf.tail contents");
@@ -513,10 +513,9 @@ v4_resolv_conf_contents(struct imsg_v4proposal *v4proposal)
 					log_warnx("resolv.conf.tail: empty");
 				else if (tailn != sb.st_size)
 					log_warnx("resolv.conf.tail: short");
-				else {
-					resolv_tail[tailn] = '\0';
-					fprintf(fp, "%s", resolv_tail);
-				}
+				else
+					fprintf(fp, "%.*s", (int)tailn,
+					    resolv_tail);
 			}
 done:
 			close(tailfd);
