@@ -62,7 +62,9 @@ enum imsg_type {
 	IMSG_SEND_V4PROPOSAL,
 	IMSG_SEND_V6PROPOSAL,
 	IMSG_EXECUTE_V4PROPOSAL,
-	IMSG_EXECUTE_V6PROPOSAL
+	IMSG_SUPERSEDE_V4PROPOSAL,
+	IMSG_EXECUTE_V6PROPOSAL,
+	IMSG_SUPERSEDE_V6PROPOSAL
 };
 
 enum {
@@ -180,8 +182,10 @@ extern struct kr_state	kr_state;
 int	kr_init(void);
 int	kr_get_rtaddrs(int, struct sockaddr *, struct sockaddr **);
 
-/* v4.c	*/
+/* netcfgd_v4.c	*/
 void	v4_execute_proposal(struct imsg *);
+void	v4_supersede_proposal(struct imsg *);
 
-/* v6.c	*/
+/* netcfgd_v6.c	*/
 void	v6_execute_proposal(struct imsg *);
+void	v6_supersede_proposal(struct imsg *);

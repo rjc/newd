@@ -33,5 +33,11 @@
 void
 v6_execute_proposal(struct imsg *imsg)
 {
-	log_warnx("Execting a v4 proposal");
+	log_warnx("Executing a v6 proposal");
+}
+
+void
+v6_supersede_proposal(struct imsg *imsg)
+{
+	log_warnx("Superseding a v6 proposal");
 }

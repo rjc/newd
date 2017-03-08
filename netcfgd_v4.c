@@ -157,6 +157,35 @@ v4_execute_proposal(struct imsg *imsg)
 }
 
 void
+v4_supersede_proposal(struct imsg *imsg)
+{
+	struct rt_msghdr	 rtm;
+	struct imsg_v4proposal	*v4proposal;
+	ssize_t			 rlen;
+
+	memset(&rtm, 0, sizeof(rtm));
+	v4proposal = imsg->data;
+
+	/* Supersede proposal. */
+	rtm.rtm_version = RTM_VERSION;
+	rtm.rtm_msglen = sizeof(rtm);
+	rtm.rtm_flags = RTF_PROTO2;
+	rtm.rtm_type = RTM_PROPOSAL;
+
+	rtm.rtm_index = v4proposal->index;
+	rtm.rtm_priority = v4proposal->source;
+	rtm.rtm_seq = v4proposal->xid;
+	rtm.rtm_tableid = v4proposal->rdomain;
+
+	rlen = write(kr_state.route_fd, &rtm, rtm.rtm_msglen);
+	if (rlen == -1) {
+		if (errno != ESRCH)
+			fatal("RTM_PROPOSAL write");
+	} else if (rlen < (int)rtm.rtm_msglen)
+		fatalx("short RTM_PROPOSAL write (%zd)\n", rlen);
+}
+
+void
 v4_flush_routes(struct imsg_v4proposal *v4proposal)
 {
 	struct sockaddr *rti_info[RTAX_MAX];

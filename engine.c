@@ -51,6 +51,7 @@ void		 engine_show_v4proposal(struct imsg *,
 void		 engine_show_v6proposal(struct imsg *,
 		     struct imsg_v6proposal *, struct ctl_policy_id *);
 void		 engine_set_source_state(struct imsg *);
+void		 engine_supersede_v4proposal(struct imsg_v4proposal *);
 
 struct netcfgd_conf	*engine_conf;
 struct imsgev		*iev_frontend;
@@ -458,6 +459,10 @@ engine_process_v4proposal(struct imsg *imsg)
 		} else {
 			if (ifp->p_dhclient != NULL) {
 				log_warnx("dhclient proposal superseded");
+				engine_imsg_compose_main(
+				    IMSG_SUPERSEDE_V4PROPOSAL,
+				    imsg->hdr.pid, ifp->p_dhclient,
+				    sizeof(struct imsg_v4proposal));
 				free(ifp->p_dhclient);
 			}
 			ifp->p_dhclient = p4;
@@ -496,7 +501,7 @@ engine_process_v4proposal(struct imsg *imsg)
 			free(p4);
 			return (1);
 		} else {
-			/* Supersede current dhclient proposal. */
+			/* Supersede current static proposal. */
 			log_warnx("v4 static proposal superseded");
 			free(ifp->p_v4statik);
 			ifp->p_v4statik = p4;
@@ -583,6 +588,14 @@ engine_process_v6proposal(struct imsg *imsg)
 			free(p6);
 			return (1);
 		} else {
+			if (ifp->p_slaac != NULL) {
+				log_warnx("slaac proposal superseded");
+				engine_imsg_compose_main(
+				    IMSG_SUPERSEDE_V6PROPOSAL,
+				    imsg->hdr.pid, ifp->p_slaac,
+				    sizeof(struct imsg_v6proposal));
+				free(ifp->p_slaac);
+			}
 			free(ifp->p_slaac);
 			ifp->p_slaac = p6;
 			log_warnx("slaac proposal superseded");
@@ -742,4 +755,9 @@ engine_set_source_state(struct imsg *imsg)
 			break;
 		}
 	}
+}
+
+void
+engine_supersede_v4proposal(struct imsg_v4proposal *v4proposal)
+{
 }
