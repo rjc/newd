@@ -64,13 +64,14 @@ int	v4_check_route_label(struct sockaddr_rtlabel *);
 void
 v4_execute_proposal(struct imsg *imsg)
 {
-	struct imsg_v4proposal v4proposal;
-	struct ifaliasreq ifaliasreq;
-	struct ifreq ifr;
-	char name[IF_NAMESIZE];
-	struct in_addr addr;
-	struct ifaddrs *ifap, *ifa;
-	struct sockaddr_in *in;
+	struct imsg_v4proposal	 v4proposal;
+	struct ifaliasreq	 ifaliasreq;
+	struct ifreq		 ifr;
+	char			 name[IF_NAMESIZE];
+	struct in_addr		 addr, mask;
+	struct ifaddrs		*ifap, *ifa;
+	struct sockaddr_in	*in;
+	int			 added = 0;
 
 	memcpy(&v4proposal, imsg->data, sizeof(v4proposal));
 	if (if_indextoname(v4proposal.index, name) == NULL)
@@ -91,6 +92,19 @@ v4_execute_proposal(struct imsg *imsg)
 
 		memcpy(&addr, &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr,
 		    sizeof(addr));
+		memcpy(&mask,
+		    &((struct sockaddr_in *)ifa->ifa_netmask)->sin_addr,
+		    sizeof(mask));
+
+		if (((v4proposal.addrs & RTA_IFA) != 0) &&
+		    ((v4proposal.addrs & RTA_NETMASK) != 0) &&
+		    v4proposal.kill != 0 &&
+		    v4proposal.ifa.s_addr == addr.s_addr &&
+		    v4proposal.netmask.s_addr == mask.s_addr) {
+			/* No need to delete address we are going to add! */
+			added = 1;
+			continue;
+		}
 
 		memset(&ifaliasreq, 0, sizeof(ifaliasreq));
 		strncpy(ifaliasreq.ifra_name, name,
@@ -106,7 +120,6 @@ v4_execute_proposal(struct imsg *imsg)
 				log_warn("SIOCDIFADDR failed (%s)",
 				    inet_ntoa(addr));
 		}
-
 	}
 
 	freeifaddrs(ifap);
@@ -127,7 +140,7 @@ v4_execute_proposal(struct imsg *imsg)
 	 * 4) Add address & netmask. No need to set broadcast
 	 *    address. Kernel can figure it out.
 	 */
-	if (v4proposal.kill == 0) {
+	if (v4proposal.kill == 0 && added == 0) {
 		memset(&ifaliasreq, 0, sizeof(ifaliasreq));
 		strncpy(ifaliasreq.ifra_name, name,
 		    sizeof(ifaliasreq.ifra_name));
