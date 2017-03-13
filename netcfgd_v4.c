@@ -204,12 +204,12 @@ netcfgd_add_v4route(struct imsg *imsg)
 	}
 
 	if ((av4.addrs & RTA_IFA) != 0) {
-		mask.sin_len = sizeof(ifa);
-		mask.sin_family = AF_INET;
-		mask.sin_addr.s_addr = av4.netmask.s_addr;
-		iov[iovcnt].iov_base = &mask;
-		iov[iovcnt++].iov_len = sizeof(mask);
-		rtm.rtm_msglen += sizeof(mask);
+		ifa.sin_len = sizeof(ifa);
+		ifa.sin_family = AF_INET;
+		ifa.sin_addr.s_addr = av4.ifa.s_addr;
+		iov[iovcnt].iov_base = &ifa;
+		iov[iovcnt++].iov_len = sizeof(ifa);
+		rtm.rtm_msglen += sizeof(ifa);
 	}
 
 	if (writev(kr_state.route_fd, iov, iovcnt) != -1)
