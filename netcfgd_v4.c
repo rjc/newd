@@ -80,13 +80,17 @@ netcfgd_add_v4address(struct imsg *imsg)
 	 * address. Kernel can figure it out.
 	 */
 	in = (struct sockaddr_in *)&ifaliasreq.ifra_addr;
-	memcpy(in, &av4.addr, sizeof(*in));
+	in->sin_family = AF_INET;
+	in->sin_len = sizeof(ifaliasreq.ifra_addr);
+	in->sin_addr.s_addr = av4.addr.s_addr;
 
 	in = (struct sockaddr_in *)&ifaliasreq.ifra_mask;
-	memcpy(in, &av4.mask, sizeof(*in));
+	in->sin_family = AF_INET;
+	in->sin_len = sizeof(ifaliasreq.ifra_mask);
+	in->sin_addr.s_addr = av4.mask.s_addr;
 
 	if (ioctl(kr_state.inet_fd, SIOCAIFADDR, &ifaliasreq) == -1)
-		log_warn("v4_add_address %s", inet_ntoa(av4.addr.sin_addr));
+		log_warn("v4_add_address %s", inet_ntoa(av4.addr));
 }
 
 void

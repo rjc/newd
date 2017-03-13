@@ -439,7 +439,8 @@ engine_process_v4proposal(struct imsg *imsg)
 			if (ifp->p_dhclient != NULL) {
 				log_warnx("dhclient proposal superseded");
 				engine_kill_proposal(ifp->p_dhclient->xid);
-			}
+			} else
+				log_warnx("new dhclient proposal");
 			ifp->p_dhclient = p4;
 			engine_add_v4address(ifp->p_dhclient);
 			engine_add_v4routes(ifp->p_dhclient);
@@ -653,8 +654,6 @@ engine_set_source_state(struct imsg *imsg)
 	struct interface	*ifp;
 	int			 newstate = 1;
 
-	log_warnx("set_source_state");
-
 	memcpy(&cpid, imsg->data, sizeof(cpid));
 
 	LIST_FOREACH(ifp, &engine_conf->interface_list, entry) {
@@ -699,7 +698,6 @@ engine_resolv_conf_contents(struct interface *ifp)
 	char			*src;
 	int			 i, j, rslt, servercnt;
 
-	memset(search, 0, sizeof(search));
 	memset(nss, 0, sizeof(nss));
 
 	dhclient = ifp->p_dhclient;
@@ -707,10 +705,11 @@ engine_resolv_conf_contents(struct interface *ifp)
 	slaac = ifp->p_slaac;
 	v6static = ifp->p_v6static;
 
-	if ((dhclient->rtsearch_len > 0) ||
-	    (v4static->rtsearch_len > 0) ||
-	    (slaac->rtsearch_len > 0) ||
-	    (v6static->rtsearch_len > 0)){
+#if 0
+	if ((dhclient && dhclient->rtsearch_len > 0) ||
+	    (v4static && v4static->rtsearch_len > 0) ||
+	    (slaac && slaac->rtsearch_len > 0) ||
+	    (v6static && v6static->rtsearch_len > 0)) {
 		rslt = asprintf(&search, "search %.*s %.*s %.*s %.*s\n",
 		    dhclient->rtsearch_len, dhclient->rtsearch,
 		    v4static->rtsearch_len, v4static->rtsearch,
@@ -719,79 +718,97 @@ engine_resolv_conf_contents(struct interface *ifp)
 		if (rslt == -1)
 			search = NULL;
 	}
+#else
+	search = strdup("Nuggies\n");
+#endif
 
 	j = 0;
 
-	servercnt = dhclient->rtdns_len / sizeof(struct in_addr);
-	if (servercnt > MAXNS)
-		servercnt = MAXNS;
-	src = dhclient->rtdns;
-	for (i = 0; i < servercnt; i++) {
-		memcpy(&v4server.s_addr, src, sizeof(v4server.s_addr));
-		rslt = asprintf(&nss[i], "nameserver %s\n",
-		    inet_ntoa(v4server));
-		if (rslt == -1) {
-			nss[j++] = NULL;
-			log_warn("IPv4 nameserver");
+	if (dhclient != NULL) {
+		servercnt = dhclient->rtdns_len / sizeof(struct in_addr);
+		if (servercnt > MAXNS)
+			servercnt = MAXNS;
+		src = dhclient->rtdns;
+		for (i = 0; i < servercnt; i++) {
+			memcpy(&v4server.s_addr, src, sizeof(v4server.s_addr));
+			rslt = asprintf(&nss[i], "nameserver %s\n",
+			    inet_ntoa(v4server));
+			if (rslt == -1) {
+				nss[j++] = NULL;
+				log_warn("IPv4 nameserver");
+			}
+			src += sizeof(struct in_addr);
 		}
-		src += sizeof(struct in_addr);
 	}
-	servercnt = v4static->rtdns_len / sizeof(struct in_addr);
-	if (servercnt > MAXNS - j)
-		servercnt = MAXNS - j;
-	src = v4static->rtdns;
-	for (i = 0; i < servercnt; i++) {
-		memcpy(&v4server.s_addr, src, sizeof(v4server.s_addr));
-		rslt = asprintf(&nss[i], "nameserver %s\n",
-		    inet_ntoa(v4server));
-		if (rslt == -1) {
-			nss[j++] = NULL;
-			log_warn("IPv4 nameserver");
+	if (v4static != NULL) {
+		servercnt = v4static->rtdns_len / sizeof(struct in_addr);
+		if (servercnt > MAXNS - j)
+			servercnt = MAXNS - j;
+		src = v4static->rtdns;
+		for (i = 0; i < servercnt; i++) {
+			memcpy(&v4server.s_addr, src, sizeof(v4server.s_addr));
+			rslt = asprintf(&nss[i], "nameserver %s\n",
+			    inet_ntoa(v4server));
+			if (rslt == -1) {
+				nss[j++] = NULL;
+				log_warn("IPv4 nameserver");
+			}
+			src += sizeof(struct in_addr);
 		}
-		src += sizeof(struct in_addr);
 	}
 
-	servercnt = slaac->rtdns_len / sizeof(struct in6_addr);
-	if (servercnt > MAXNS - j)
-		servercnt = MAXNS - j;
-	src = slaac->rtdns;
-	for (i = 0; i < servercnt; i++) {
-		memcpy(&v6server, src, sizeof(v6server));
-		pbuf = inet_ntop(AF_INET6, &v6server, buf, INET_ADDRSTRLEN);
-		if (pbuf) {
-			rslt = asprintf(&nss[i], "nameserver %s\n", pbuf);
-			if (rslt == -1) {
-				nss[j++] = NULL;
+	if (slaac != NULL) {
+		servercnt = slaac->rtdns_len / sizeof(struct in6_addr);
+		if (servercnt > MAXNS - j)
+			servercnt = MAXNS - j;
+		src = slaac->rtdns;
+		for (i = 0; i < servercnt; i++) {
+			memcpy(&v6server, src, sizeof(v6server));
+			pbuf = inet_ntop(AF_INET6, &v6server, buf,
+			    INET_ADDRSTRLEN);
+			if (pbuf) {
+				rslt = asprintf(&nss[i], "nameserver %s\n",
+				    pbuf);
+				if (rslt == -1) {
+					nss[j++] = NULL;
+					log_warn("IPv6 nameserver");
+				}
+			} else {
+				nss[i] = NULL;
 				log_warn("IPv6 nameserver");
 			}
-		} else {
-			nss[i] = NULL;
-			log_warn("IPv6 nameserver");
+			src += sizeof(struct in_addr);
 		}
-		src += sizeof(struct in_addr);
 	}
-	servercnt = v6static->rtdns_len / sizeof(struct in6_addr);
-	if (servercnt > MAXNS - j)
-		servercnt = MAXNS - j;
-	src = v6static->rtdns;
-	for (i = 0; i < servercnt; i++) {
-		memcpy(&v6server, src, sizeof(v6server));
-		pbuf = inet_ntop(AF_INET6, &v6server, buf, INET_ADDRSTRLEN);
-		if (pbuf) {
-			rslt = asprintf(&nss[i], "nameserver %s\n", pbuf);
-			if (rslt == -1) {
-				nss[j++] = NULL;
+	if (v6static) {
+		servercnt = v6static->rtdns_len / sizeof(struct in6_addr);
+		if (servercnt > MAXNS - j)
+			servercnt = MAXNS - j;
+		src = v6static->rtdns;
+		for (i = 0; i < servercnt; i++) {
+			memcpy(&v6server, src, sizeof(v6server));
+			pbuf = inet_ntop(AF_INET6, &v6server, buf,
+			    INET_ADDRSTRLEN);
+			if (pbuf) {
+				rslt = asprintf(&nss[i], "nameserver %s\n",
+				    pbuf);
+				if (rslt == -1) {
+					nss[j++] = NULL;
+					log_warn("IPv6 nameserver");
+				}
+			} else {
+				nss[i] = NULL;
 				log_warn("IPv6 nameserver");
 			}
-		} else {
-			nss[i] = NULL;
-			log_warn("IPv6 nameserver");
+			src += sizeof(struct in_addr);
 		}
-		src += sizeof(struct in_addr);
 	}
 
 	rslt = asprintf(&contents, "# Created by netcfgd\n%s%s%s%s",
-	    search, nss[0], nss[1], nss[2]);
+	    search ? search : "",
+	    nss[0] ? nss[0] : "",
+	    nss[1] ? nss[1] : "",
+	    nss[2] ? nss[2] : "");
 	if (rslt == -1) {
 		log_warn("resolv.conf contents");
 	} else {

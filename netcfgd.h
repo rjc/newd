@@ -161,21 +161,21 @@ struct imsg_supersede_proposal {
 
 struct imsg_delete_v4address {
 	char			name[IF_NAMESIZE];
-	struct sockaddr_in	addr;
+	struct in_addr		addr;
 };
 struct imsg_delete_v6address {
 	char			name[IF_NAMESIZE];
-	struct sockaddr_in6	addr;
+	struct in6_addr		addr;
 };
 struct imsg_add_v4address {
 	char			name[IF_NAMESIZE];
-	struct sockaddr_in	addr;
-	struct sockaddr_in	mask;
+	struct in_addr		addr;
+	struct in_addr		mask;
 };
 struct imsg_add_v6address {
 	char			name[IF_NAMESIZE];
-	struct sockaddr_in6	addr;
-	struct sockaddr_in6	mask;
+	struct in6_addr		addr;
+	struct in6_addr		mask;
 };
 struct imsg_delete_v4route {
 	struct in_addr		dest;
