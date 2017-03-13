@@ -694,9 +694,11 @@ engine_resolv_conf_contents(struct interface *ifp)
 	struct imsg_v4proposal	*dhclient, *v4static;
 	struct imsg_v6proposal	*slaac, *v6static;
 	const char		*pbuf;
-	char			*search, *nss[MAXNS], *contents;
+	char			*search[4], *nss[MAXNS], *contents;
 	char			*src;
 	int			 i, j, rslt, servercnt;
+
+	/* XXX Actually need to process *ALL* interfaces! */
 
 	memset(nss, 0, sizeof(nss));
 
@@ -705,22 +707,36 @@ engine_resolv_conf_contents(struct interface *ifp)
 	slaac = ifp->p_slaac;
 	v6static = ifp->p_v6static;
 
-#if 0
-	if ((dhclient && dhclient->rtsearch_len > 0) ||
-	    (v4static && v4static->rtsearch_len > 0) ||
-	    (slaac && slaac->rtsearch_len > 0) ||
-	    (v6static && v6static->rtsearch_len > 0)) {
-		rslt = asprintf(&search, "search %.*s %.*s %.*s %.*s\n",
-		    dhclient->rtsearch_len, dhclient->rtsearch,
-		    v4static->rtsearch_len, v4static->rtsearch,
-		    slaac->rtsearch_len, slaac->rtsearch,
-		    v6static->rtsearch_len, v6static->rtsearch);
+	search[0] = NULL;
+	if (dhclient && dhclient->rtsearch_len > 0) {
+		log_warnx("dhclient rtsearch %.*s", dhclient->rtsearch_len,
+		    dhclient->rtsearch);
+		rslt = asprintf(&search[0], "%.*s", dhclient->rtsearch_len,
+		    dhclient->rtsearch);
 		if (rslt == -1)
-			search = NULL;
+			 search[0] = NULL;
 	}
-#else
-	search = strdup("Nuggies\n");
-#endif
+	search[1] = NULL;
+	if (v4static && v4static->rtsearch_len > 0) {
+		rslt = asprintf(&search[1], "%.*s", v4static->rtsearch_len,
+		    v4static->rtsearch);
+		if (rslt == -1)
+			search[1] = NULL;
+	}
+	search[2] = NULL;
+	if (slaac && slaac->rtsearch_len > 0) {
+		rslt = asprintf(&search[2], "%.*s", slaac->rtsearch_len,
+		    slaac->rtsearch);
+		if (rslt == -1)
+			search[2] = NULL;
+	}
+	search[3] = NULL;
+	if (v6static && v6static->rtsearch_len > 0) {
+		rslt = asprintf(&search[3], "%.*s", v6static->rtsearch_len,
+		    v6static->rtsearch);
+		if (rslt == -1)
+			search[3] = NULL;
+	}
 
 	j = 0;
 
@@ -780,7 +796,7 @@ engine_resolv_conf_contents(struct interface *ifp)
 			src += sizeof(struct in_addr);
 		}
 	}
-	if (v6static) {
+	if (v6static != NULL) {
 		servercnt = v6static->rtdns_len / sizeof(struct in6_addr);
 		if (servercnt > MAXNS - j)
 			servercnt = MAXNS - j;
@@ -804,8 +820,13 @@ engine_resolv_conf_contents(struct interface *ifp)
 		}
 	}
 
-	rslt = asprintf(&contents, "# Created by netcfgd\n%s%s%s%s",
-	    search ? search : "",
+	rslt = asprintf(&contents, "# Created by netcfgd\n"
+	    "search %s %s %s %s\n"
+	    "%s%s%s",
+	    search[0] ? search[0] : "",
+	    search[1] ? search[1] : "",
+	    search[2] ? search[2] : "",
+	    search[3] ? search[3] : "",
 	    nss[0] ? nss[0] : "",
 	    nss[1] ? nss[1] : "",
 	    nss[2] ? nss[2] : "");
@@ -819,5 +840,6 @@ engine_resolv_conf_contents(struct interface *ifp)
 
 	for (i = 0; i < MAXNS; i++)
 		free(nss[i]);
-	free(search);
+	for (i = 0; i < 4; i++)
+		free(search[i]);
 }
