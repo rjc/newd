@@ -573,6 +573,7 @@ engine_kill_proposal(int xid)
 		if (ifp->p_dhclient != NULL && ifp->p_dhclient->xid == xid) {
 			sp.source = RTP_PROPOSAL_DHCLIENT;
 			sp.rdomain = ifp->p_dhclient->rdomain;
+			sp.index = ifp->p_dhclient->index;
 			engine_delete_v4routes(ifp->p_dhclient);
 			engine_delete_v4address(ifp->p_dhclient);
 			free(ifp->p_dhclient);
@@ -582,6 +583,7 @@ engine_kill_proposal(int xid)
 		if (ifp->p_v4static != NULL && ifp->p_v4static->xid == xid) {
 			sp.source = RTP_PROPOSAL_STATIC;
 			sp.rdomain = ifp->p_v4static->rdomain;
+			sp.index = ifp->p_v4static->index;
 			engine_delete_v4routes(ifp->p_v4static);
 			engine_delete_v4address(ifp->p_v4static);
 			free(ifp->p_v4static);
@@ -591,6 +593,7 @@ engine_kill_proposal(int xid)
 		if (ifp->p_slaac != NULL && ifp->p_slaac->xid == xid) {
 			sp.source = RTP_PROPOSAL_SLAAC;
 			sp.rdomain = ifp->p_slaac->rdomain;
+			sp.index = ifp->p_slaac->index;
 			engine_delete_v6routes(ifp->p_slaac);
 			engine_delete_v6address(ifp->p_slaac);
 			free(ifp->p_slaac);
@@ -600,6 +603,7 @@ engine_kill_proposal(int xid)
 		if (ifp->p_v6static != NULL && ifp->p_v6static->xid == xid) {
 			sp.source = RTP_PROPOSAL_STATIC;
 			sp.rdomain = ifp->p_v6static->rdomain;
+			sp.index = ifp->p_v6static->index;
 			engine_delete_v6routes(ifp->p_v6static);
 			engine_delete_v6address(ifp->p_v6static);
 			free(ifp->p_v6static);
