@@ -136,13 +136,18 @@ void
 netcfgd_add_v4route(struct imsg *imsg)
 {
 	struct rt_msghdr rtm;
+	struct sockaddr_in dest, gateway, mask;
 	struct imsg_add_v4route av4;
-	struct iovec iov[5];
+	struct iovec iov[4];
 	int iovcnt = 0;
 
 	/* Build RTM header */
 
 	memset(&rtm, 0, sizeof(rtm));
+	memset(&dest, 0, sizeof(dest));
+	memset(&mask, 0, sizeof(mask));
+	memset(&gateway, 0, sizeof(gateway));
+
 	memcpy(&av4, imsg->data, sizeof(av4));
 
 	rtm.rtm_version = RTM_VERSION;
@@ -158,27 +163,30 @@ netcfgd_add_v4route(struct imsg *imsg)
 	iov[iovcnt++].iov_len = sizeof(rtm);
 
 	if ((av4.addrs & RTA_DST) != 0) {
-		iov[iovcnt].iov_base = &av4.dest;
-		iov[iovcnt++].iov_len = sizeof(av4.dest);
-		rtm.rtm_msglen += sizeof(av4.dest);
+		dest.sin_len = sizeof(dest);
+		dest.sin_family = AF_INET;
+		dest.sin_addr.s_addr = av4.dest.s_addr;
+		iov[iovcnt].iov_base = &dest;
+		iov[iovcnt++].iov_len = sizeof(dest);
+		rtm.rtm_msglen += sizeof(dest);
 	}
 
 	if ((av4.addrs & RTA_GATEWAY) != 0) {
-		iov[iovcnt].iov_base = &av4.gateway;
-		iov[iovcnt++].iov_len = sizeof(av4.gateway);
-		rtm.rtm_msglen += sizeof(av4.gateway);
+		gateway.sin_len = sizeof(gateway);
+		gateway.sin_family = AF_INET;
+		gateway.sin_addr.s_addr = av4.gateway.s_addr;
+		iov[iovcnt].iov_base = &gateway;
+		iov[iovcnt++].iov_len = sizeof(gateway);
+		rtm.rtm_msglen += sizeof(gateway);
 	}
 
 	if ((av4.addrs & RTA_NETMASK) != 0) {
-		iov[iovcnt].iov_base = &av4.netmask;
-		iov[iovcnt++].iov_len = sizeof(av4.netmask);
-		rtm.rtm_msglen += sizeof(av4.netmask);
-	}
-
-	if ((av4.addrs & RTA_IFA) != 0) {
-		iov[iovcnt].iov_base = &av4.ifa;
-		iov[iovcnt++].iov_len = sizeof(av4.ifa);
-		rtm.rtm_msglen += sizeof(av4.ifa);
+		mask.sin_len = sizeof(mask);
+		mask.sin_family = AF_INET;
+		mask.sin_addr.s_addr = av4.netmask.s_addr;
+		iov[iovcnt].iov_base = &mask;
+		iov[iovcnt++].iov_len = sizeof(mask);
+		rtm.rtm_msglen += sizeof(mask);
 	}
 
 	if (writev(kr_state.route_fd, iov, iovcnt) != -1)
