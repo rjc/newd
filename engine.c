@@ -709,8 +709,6 @@ engine_resolv_conf_contents(struct interface *ifp)
 
 	search[0] = NULL;
 	if (dhclient && dhclient->rtsearch_len > 0) {
-		log_warnx("dhclient rtsearch %.*s", dhclient->rtsearch_len,
-		    dhclient->rtsearch);
 		rslt = asprintf(&search[0], "%.*s", dhclient->rtsearch_len,
 		    dhclient->rtsearch);
 		if (rslt == -1)
@@ -745,12 +743,12 @@ engine_resolv_conf_contents(struct interface *ifp)
 		if (servercnt > MAXNS)
 			servercnt = MAXNS;
 		src = dhclient->rtdns;
-		for (i = 0; i < servercnt; i++) {
+		for (i = 0; i < servercnt; i++, j++) {
 			memcpy(&v4server.s_addr, src, sizeof(v4server.s_addr));
-			rslt = asprintf(&nss[i], "nameserver %s\n",
+			rslt = asprintf(&nss[j], "nameserver %s\n",
 			    inet_ntoa(v4server));
 			if (rslt == -1) {
-				nss[j++] = NULL;
+				nss[j] = NULL;
 				log_warn("IPv4 nameserver");
 			}
 			src += sizeof(struct in_addr);
@@ -761,12 +759,12 @@ engine_resolv_conf_contents(struct interface *ifp)
 		if (servercnt > MAXNS - j)
 			servercnt = MAXNS - j;
 		src = v4static->rtdns;
-		for (i = 0; i < servercnt; i++) {
+		for (i = 0; i < servercnt; i++, j++) {
 			memcpy(&v4server.s_addr, src, sizeof(v4server.s_addr));
-			rslt = asprintf(&nss[i], "nameserver %s\n",
+			rslt = asprintf(&nss[j], "nameserver %s\n",
 			    inet_ntoa(v4server));
 			if (rslt == -1) {
-				nss[j++] = NULL;
+				nss[j] = NULL;
 				log_warn("IPv4 nameserver");
 			}
 			src += sizeof(struct in_addr);
@@ -778,19 +776,19 @@ engine_resolv_conf_contents(struct interface *ifp)
 		if (servercnt > MAXNS - j)
 			servercnt = MAXNS - j;
 		src = slaac->rtdns;
-		for (i = 0; i < servercnt; i++) {
+		for (i = 0; i < servercnt; i++, j++) {
 			memcpy(&v6server, src, sizeof(v6server));
 			pbuf = inet_ntop(AF_INET6, &v6server, buf,
 			    INET_ADDRSTRLEN);
 			if (pbuf) {
-				rslt = asprintf(&nss[i], "nameserver %s\n",
+				rslt = asprintf(&nss[j], "nameserver %s\n",
 				    pbuf);
 				if (rslt == -1) {
-					nss[j++] = NULL;
+					nss[j] = NULL;
 					log_warn("IPv6 nameserver");
 				}
 			} else {
-				nss[i] = NULL;
+				nss[j] = NULL;
 				log_warn("IPv6 nameserver");
 			}
 			src += sizeof(struct in_addr);
@@ -801,40 +799,49 @@ engine_resolv_conf_contents(struct interface *ifp)
 		if (servercnt > MAXNS - j)
 			servercnt = MAXNS - j;
 		src = v6static->rtdns;
-		for (i = 0; i < servercnt; i++) {
+		for (i = 0; i < servercnt; i++, j++) {
 			memcpy(&v6server, src, sizeof(v6server));
 			pbuf = inet_ntop(AF_INET6, &v6server, buf,
 			    INET_ADDRSTRLEN);
 			if (pbuf) {
-				rslt = asprintf(&nss[i], "nameserver %s\n",
+				rslt = asprintf(&nss[j], "nameserver %s\n",
 				    pbuf);
 				if (rslt == -1) {
-					nss[j++] = NULL;
+					nss[j] = NULL;
 					log_warn("IPv6 nameserver");
 				}
 			} else {
-				nss[i] = NULL;
+				nss[j] = NULL;
 				log_warn("IPv6 nameserver");
 			}
 			src += sizeof(struct in_addr);
 		}
 	}
 
-	rslt = asprintf(&contents, "# Created by netcfgd\n"
-	    "search %s %s %s %s\n"
-	    "%s%s%s",
-	    search[0] ? search[0] : "",
-	    search[1] ? search[1] : "",
-	    search[2] ? search[2] : "",
-	    search[3] ? search[3] : "",
-	    nss[0] ? nss[0] : "",
-	    nss[1] ? nss[1] : "",
-	    nss[2] ? nss[2] : "");
+	if (search[0] || search[1] || search[2] || search[3]) {
+		rslt = asprintf(&contents, "# Created by netcfgd\n"
+		    "search %s %s %s %s\n"
+		    "%s%s%s",
+		    search[0] ? search[0] : "",
+		    search[1] ? search[1] : "",
+		    search[2] ? search[2] : "",
+		    search[3] ? search[3] : "",
+		    nss[0] ? nss[0] : "",
+		    nss[1] ? nss[1] : "",
+		    nss[2] ? nss[2] : "");
+	} else {
+		rslt = asprintf(&contents, "# Created by netcfgd\n"
+		    "%s%s%s",
+		    nss[0] ? nss[0] : "",
+		    nss[1] ? nss[1] : "",
+		    nss[2] ? nss[2] : "");
+	}
 	if (rslt == -1) {
 		log_warn("resolv.conf contents");
+		contents = NULL;
 	} else {
 		engine_imsg_compose_main(IMSG_RESOLV_CONF, 0, contents,
-		    strlen(contents));
+		    rslt + 1);
 		free(contents);
 	}
 
@@ -842,4 +849,5 @@ engine_resolv_conf_contents(struct interface *ifp)
 		free(nss[i]);
 	for (i = 0; i < 4; i++)
 		free(search[i]);
+	free(contents);
 }

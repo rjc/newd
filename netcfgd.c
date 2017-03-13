@@ -467,8 +467,7 @@ main_dispatch_engine(int fd, short event, void *bula)
 				log_warn("/etc/resolv.conf");
 				break;
 			}
-			fprintf(fp, "%.*s", (int)(n - offsetof(struct imsg,
-			    data)), (char *)imsg.data);
+			fprintf(fp, "%s", (char *)imsg.data);
 			fclose(fp);
 			break;
 		case IMSG_SET_MTU:
