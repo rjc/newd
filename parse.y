@@ -185,10 +185,10 @@ policyoptsl	: DHCLIENT {
 			interface->slaac = 1;
 		}
 		| V4STATIC {
-			interface->v4statik = 1;
+			interface->v4static = 1;
 		}
 		| V6STATIC {
-			interface->v6statik = 1;
+			interface->v6static = 1;
 		}
 		;
 
@@ -702,9 +702,9 @@ clear_config(struct netcfgd_conf *xconf)
 	while ((ifp = LIST_FIRST(&xconf->interface_list)) != NULL) {
 		LIST_REMOVE(ifp, entry);
 		free(ifp->p_dhclient);
-		free(ifp->p_v4statik);
+		free(ifp->p_v4static);
 		free(ifp->p_slaac);
-		free(ifp->p_v6statik);
+		free(ifp->p_v6static);
 		free(ifp);
 	}
 

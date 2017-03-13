@@ -87,12 +87,12 @@ struct interface {
 	unsigned int		 ifindex;
 	int			 dhclient;
 	int			 slaac;
-	int			 v4statik;
-	int			 v6statik;
+	int			 v4static;
+	int			 v6static;
 	struct imsg_v4proposal	*p_dhclient;
-	struct imsg_v4proposal	*p_v4statik;
+	struct imsg_v4proposal	*p_v4static;
 	struct imsg_v6proposal	*p_slaac;
-	struct imsg_v6proposal	*p_v6statik;
+	struct imsg_v6proposal	*p_v6static;
 };
 
 struct netcfgd_conf {

@@ -42,9 +42,9 @@ print_config(struct netcfgd_conf *conf)
 			printf("\tdhclient\n");
 		if (ifp->slaac)
 			printf("\tslaac\n");
-		if (ifp->v4statik)
+		if (ifp->v4static)
 			printf("\tv4static\n");
-		if (ifp->v6statik)
+		if (ifp->v6static)
 			printf("\tv6static\n");
 
 		printf("}\n");
