@@ -103,6 +103,8 @@ engine_add_v4routes(struct imsg_v4proposal *v4proposal)
 			return;
 
 		memset(&av4, 0, sizeof(av4));
+		av4.ifa.s_addr = v4proposal->ifa.s_addr;
+
 		if (bits)
 			av4.netmask.s_addr = htonl(0xffffffff <<
 			    (32 - bits));
@@ -141,7 +143,8 @@ engine_add_v4routes(struct imsg_v4proposal *v4proposal)
 			 *
 			 *	route <rdomain> add default <gateway>
 			 */
-			av4.addrs = RTA_DST | RTA_NETMASK | RTA_GATEWAY;
+			av4.addrs = RTA_DST | RTA_NETMASK | RTA_GATEWAY |
+			    RTA_IFA;
 			av4.flags = RTF_GATEWAY | RTF_STATIC;
 		} else if (av4.netmask.s_addr == INADDR_BROADCAST) {
 			/*
@@ -162,7 +165,8 @@ engine_add_v4routes(struct imsg_v4proposal *v4proposal)
 			 * Any other netmask value means a 'normal' static
 			 * route.
 			 */
-			av4.addrs= RTA_DST | RTA_NETMASK | RTA_GATEWAY;
+			av4.addrs= RTA_DST | RTA_NETMASK | RTA_GATEWAY |
+			    RTA_IFA;
 			av4.flags = RTF_GATEWAY | RTF_STATIC;
 		}
 

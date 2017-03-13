@@ -60,7 +60,8 @@ netcfgd_delete_v4address(struct imsg *imsg)
 	memcpy(in, &dv4.addr, sizeof(*in));
 
 	if (ioctl(kr_state.inet_fd, SIOCDIFADDR, &ifaliasreq) == -1)
-		log_warn("v4_delete_address %s", inet_ntoa(in->sin_addr));
+		log_warn("netcfgd_delete_v4address %s",
+		    inet_ntoa(in->sin_addr));
 }
 
 void
@@ -90,7 +91,7 @@ netcfgd_add_v4address(struct imsg *imsg)
 	in->sin_addr.s_addr = av4.mask.s_addr;
 
 	if (ioctl(kr_state.inet_fd, SIOCAIFADDR, &ifaliasreq) == -1)
-		log_warn("v4_add_address %s", inet_ntoa(av4.addr));
+		log_warn("netcfgd_add_v4address %s", inet_ntoa(av4.addr));
 }
 
 void
@@ -99,6 +100,7 @@ netcfgd_delete_v4route(struct imsg *imsg)
 	static int			seqno;
 	struct rt_msghdr		rtm;
 	struct imsg_delete_v4route	dv4;
+	struct sockaddr_in		dest, gateway, mask;
 	struct iovec			iov[4];
 	int				iovcnt = 0;
 
@@ -116,29 +118,41 @@ netcfgd_delete_v4route(struct imsg *imsg)
 	iov[iovcnt].iov_base = &rtm;
 	iov[iovcnt++].iov_len = sizeof(rtm);
 
-	iov[iovcnt].iov_base = &dv4.dest;
-	iov[iovcnt++].iov_len = sizeof(dv4.dest);
-	rtm.rtm_msglen += sizeof(dv4.dest);
+	memset(&dest, 0, sizeof(dest));
+	dest.sin_len = sizeof(dest);
+	dest.sin_family = AF_INET;
+	dest.sin_addr.s_addr = dv4.dest.s_addr;
+	iov[iovcnt].iov_base = &dest;
+	iov[iovcnt++].iov_len = sizeof(dest);
+	rtm.rtm_msglen += sizeof(dest);
 
-	iov[iovcnt].iov_base = &dv4.gateway;
-	iov[iovcnt++].iov_len = sizeof(dv4.gateway);
-	rtm.rtm_msglen += sizeof(dv4.gateway);
+	memset(&gateway, 0, sizeof(gateway));
+	gateway.sin_len = sizeof(gateway);
+	gateway.sin_family = AF_INET;
+	gateway.sin_addr.s_addr = dv4.gateway.s_addr;
+	iov[iovcnt].iov_base = &gateway;
+	iov[iovcnt++].iov_len = sizeof(gateway);
+	rtm.rtm_msglen += sizeof(gateway);
 
-	iov[iovcnt].iov_base = &dv4.netmask;
-	iov[iovcnt++].iov_len = sizeof(dv4.netmask);
-	rtm.rtm_msglen += sizeof(dv4.netmask);
+	memset(&mask, 0, sizeof(mask));
+	mask.sin_len = sizeof(mask);
+	mask.sin_family = AF_INET;
+	mask.sin_addr.s_addr = dv4.netmask.s_addr;
+	iov[iovcnt].iov_base = &mask;
+	iov[iovcnt++].iov_len = sizeof(mask);
+	rtm.rtm_msglen += sizeof(mask);
 
 	if (writev(kr_state.route_fd, iov, iovcnt) == -1)
-		log_warn("v4_delete_route");
+		log_warn("netcfgd_delete_v4route");
 }
 
 void
 netcfgd_add_v4route(struct imsg *imsg)
 {
 	struct rt_msghdr rtm;
-	struct sockaddr_in dest, gateway, mask;
+	struct sockaddr_in dest, gateway, mask, ifa;
 	struct imsg_add_v4route av4;
-	struct iovec iov[4];
+	struct iovec iov[5];
 	int iovcnt = 0;
 
 	/* Build RTM header */
@@ -189,6 +203,15 @@ netcfgd_add_v4route(struct imsg *imsg)
 		rtm.rtm_msglen += sizeof(mask);
 	}
 
+	if ((av4.addrs & RTA_IFA) != 0) {
+		mask.sin_len = sizeof(ifa);
+		mask.sin_family = AF_INET;
+		mask.sin_addr.s_addr = av4.netmask.s_addr;
+		iov[iovcnt].iov_base = &mask;
+		iov[iovcnt++].iov_len = sizeof(mask);
+		rtm.rtm_msglen += sizeof(mask);
+	}
+
 	if (writev(kr_state.route_fd, iov, iovcnt) != -1)
-		log_warn("v4_add_route");
+		log_warn("netcfgd_add_v4route");
 }
