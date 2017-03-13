@@ -212,6 +212,6 @@ netcfgd_add_v4route(struct imsg *imsg)
 		rtm.rtm_msglen += sizeof(ifa);
 	}
 
-	if (writev(kr_state.route_fd, iov, iovcnt) != -1)
+	if (writev(kr_state.route_fd, iov, iovcnt) == -1)
 		log_warn("netcfgd_add_v4route");
 }
