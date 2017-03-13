@@ -25,9 +25,12 @@
 #include <net/route.h>
 #include <netinet/in.h>
 
+#include <arpa/inet.h>
+
 #include <errno.h>
 #include <event.h>
 #include <imsg.h>
+#include <resolv.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,8 +46,8 @@ void		 engine_sig_handler(int sig, short, void *);
 void		 engine_dispatch_frontend(int, short, void *);
 void		 engine_dispatch_main(int, short, void *);
 void		 engine_showinfo_ctl(struct imsg *);
-int		 engine_process_v4proposal(struct imsg *);
-int		 engine_process_v6proposal(struct imsg *);
+void		 engine_process_v4proposal(struct imsg *);
+void		 engine_process_v6proposal(struct imsg *);
 void		 engine_kill_proposal(int);
 void		 engine_show_v4proposal(struct imsg *,
 		     struct imsg_v4proposal *, struct ctl_policy_id *);
@@ -331,20 +334,10 @@ engine_dispatch_main(int fd, short event, void *bula)
 			nconf = NULL;
 			break;
 		case IMSG_SEND_V4PROPOSAL:
-			if (engine_process_v4proposal(&imsg) == 0) {
-				engine_imsg_compose_main(
-				    IMSG_EXECUTE_V4PROPOSAL,
-				    imsg.hdr.pid, imsg.data,
-				    sizeof(struct imsg_v4proposal));
-			}
+			engine_process_v4proposal(&imsg);
 			break;
 		case IMSG_SEND_V6PROPOSAL:
-			if (engine_process_v6proposal(&imsg) == 0) {
-				engine_imsg_compose_main(
-				    IMSG_EXECUTE_V6PROPOSAL,
-				    imsg.hdr.pid, imsg.data,
-				    sizeof(struct imsg_v6proposal));
-			}
+			engine_process_v6proposal(&imsg);
 			break;
 		default:
 			log_debug("%s: unexpected imsg %d", __func__,
@@ -394,14 +387,12 @@ engine_showinfo_ctl(struct imsg *imsg)
 	}
 }
 
-int
+void
 engine_process_v4proposal(struct imsg *imsg)
 {
 	char			 ifname[IF_NAMESIZE];
 	struct interface	*ifp;
 	struct imsg_v4proposal	*p4;
-	uint8_t			*dst;
-	size_t			 len;
 
 	if ((p4 = malloc(sizeof(struct imsg_v4proposal))) == NULL)
 		fatal(NULL);
@@ -430,109 +421,65 @@ engine_process_v4proposal(struct imsg *imsg)
 		log_warnx("'%s' proposals can't be accepted",
 		    if_indextoname(p4->index, ifname));
 		free(p4);
-		return (1);
+		return;
 	}
 
 	switch (p4->source) {
 	case RTP_PROPOSAL_DHCLIENT:
 		if (p4->kill) {
-			if (ifp->p_dhclient == NULL) {
-				log_warnx("no dhclient proposal to kill");
-				free(p4);
-				return (1);
-			} else if (p4->xid != ifp->p_dhclient->xid) {
-				log_warnx("dhclient xid mismatch in kill");
-				free(p4);
-				return (1);
-			}
-			log_warnx("dhclient proposal killed");
-			free(ifp->p_dhclient);
+			engine_kill_proposal(p4->xid);
 			free(p4);
-			ifp->p_dhclient = NULL;
-			return (0);
 		} else if (ifp->p_dhclient != NULL &&
 		    p4->xid == ifp->p_dhclient->xid) {
 			/* Discard duplicate proposals. */
-			log_warnx("duplicate dhclient proposal dscarded");
+			log_warnx("duplicate dhclient proposal discarded");
 			free(p4);
-			return (1);
+			return;
 		} else {
 			if (ifp->p_dhclient != NULL) {
 				log_warnx("dhclient proposal superseded");
-				engine_imsg_compose_main(
-				    IMSG_SUPERSEDE_V4PROPOSAL,
-				    imsg->hdr.pid, ifp->p_dhclient,
-				    sizeof(struct imsg_v4proposal));
-				free(ifp->p_dhclient);
+				engine_kill_proposal(ifp->p_dhclient->xid);
 			}
 			ifp->p_dhclient = p4;
-			if (ifp->p_v4statik != NULL) {
-				dst = &p4->rtdns[p4->rtdns_len];
-				len = sizeof(p4->rtdns) - p4->rtdns_len;
-				if (len > ifp->p_v4statik->rtdns_len)
-					len =  ifp->p_dhclient->rtdns_len;
-				memcpy(dst, ifp->p_v4statik->rtdns, len);
-				p4->rtdns_len += len;
-				/* XXX search? append? uniqueness? */
-			}
-			memcpy(imsg->data, p4, sizeof(struct imsg_v4proposal));
+			engine_add_v4address(ifp->p_dhclient);
+			engine_add_v4routes(ifp->p_dhclient);
 		}
 		break;
 	case RTP_PROPOSAL_STATIC:
 		if (p4->kill) {
-			if (ifp->p_v4statik == NULL) {
-				log_warnx("no v4 static proposal to kill");
-				free(p4);
-				return (1);
-			} else if (p4->xid != ifp->p_v4statik->xid) {
-				log_warnx("v4 static xid mismatch in kill");
-				free(p4);
-				return (1);
-			}
-			log_warnx("v4 static proposal killed");
-			free(ifp->p_v4statik);
+			engine_kill_proposal(p4->xid);
 			free(p4);
-			ifp->p_v4statik = NULL;
-			return (0);
 		} else if (ifp->p_v4statik &&
 		    p4->xid == ifp->p_v4statik->xid) {
 			/* Discard duplicate proposals. */
 			log_warnx("duplicate v4 static proposal dscarded");
 			free(p4);
-			return (1);
+			return;
 		} else {
-			/* Supersede current static proposal. */
-			log_warnx("v4 static proposal superseded");
-			free(ifp->p_v4statik);
-			ifp->p_v4statik = p4;
-			if (ifp->p_dhclient != NULL) {
-				dst = &p4->rtdns[p4->rtdns_len];
-				len = sizeof(p4->rtdns) - p4->rtdns_len;
-				if (len > ifp->p_dhclient->rtdns_len)
-					len =  ifp->p_dhclient->rtdns_len;
-				memcpy(dst, ifp->p_v4statik->rtdns, len);
-				p4->rtdns_len += len;
-				/* XXX search? append? uniqueness? */
+			if (ifp->p_v4statik != NULL) {
+				/* Supersede current static proposal. */
+				log_warnx("v4 static proposal superseded");
+				engine_kill_proposal(ifp->p_v4statik->xid);
 			}
-			memcpy(imsg->data, p4, sizeof(struct imsg_v4proposal));
+			ifp->p_dhclient = p4;
+			engine_add_v4address(ifp->p_dhclient);
+			engine_add_v4routes(ifp->p_dhclient);
 		}
 		break;
 	default:
 		log_warnx("Unknown v4 source: %d", p4->source);
-		return (1);
+		return;
 	}
 
-	return (0);
+	engine_resolv_conf_contents(ifp);
 }
 
-int
+void
 engine_process_v6proposal(struct imsg *imsg)
 {
 	char			 ifname[IF_NAMESIZE];
 	struct interface	*ifp;
 	struct imsg_v6proposal	*p6;
-	uint8_t			*dst;
-	size_t			 len;
 
 	if ((p6 = malloc(sizeof(struct imsg_v6proposal))) == NULL)
 		fatal(NULL);
@@ -561,125 +508,99 @@ engine_process_v6proposal(struct imsg *imsg)
 		log_warnx("'%s' proposals can't be accepted",
 		    if_indextoname(p6->index, ifname));
 		free(p6);
-		return (1);
+		return;
 	}
 
 	switch (p6->source) {
 	case RTP_PROPOSAL_SLAAC:
 		if (p6->kill) {
-			if (ifp->p_slaac == NULL) {
-				log_warnx("no slaac proposal to kill");
-				free(p6);
-				return (1);
-			} else if (p6->xid != ifp->p_slaac->xid) {
-				log_warnx("slaac xid mismatch in kill");
-				free(p6);
-				return (1);
-			}
-			log_warnx("slaac proposal killed");
-			free(ifp->p_slaac);
-			free(p6);
-			ifp->p_slaac = NULL;
-			return (0);
+			engine_kill_proposal(p6->xid);
 		} else if (ifp->p_slaac != NULL &&
 		    p6->xid == ifp->p_slaac->xid) {
 			/* Discard duplicate proposals. */
 			log_warnx("duplicate slaac proposal dscarded");
 			free(p6);
-			return (1);
+			return;
 		} else {
 			if (ifp->p_slaac != NULL) {
 				log_warnx("slaac proposal superseded");
-				engine_imsg_compose_main(
-				    IMSG_SUPERSEDE_V6PROPOSAL,
-				    imsg->hdr.pid, ifp->p_slaac,
-				    sizeof(struct imsg_v6proposal));
-				free(ifp->p_slaac);
+				engine_kill_proposal(ifp->p_slaac->xid);
 			}
-			free(ifp->p_slaac);
 			ifp->p_slaac = p6;
-			log_warnx("slaac proposal superseded");
-			if (ifp->p_v6statik != NULL) {
-				dst = &p6->rtdns[p6->rtdns_len];
-				len = sizeof(p6->rtdns) - p6->rtdns_len;
-				if (len > ifp->p_v4statik->rtdns_len)
-					len =  ifp->p_dhclient->rtdns_len;
-				memcpy(dst, ifp->p_v6statik->rtdns, len);
-				p6->rtdns_len += len;
-				/* XXX search? append? uniqueness? */
-			}
-			memcpy(imsg->data, p6, sizeof(struct imsg_v6proposal));
+			engine_add_v6address(ifp->p_slaac);
+			engine_add_v6routes(ifp->p_slaac);
 		}
 		break;
 	case RTP_PROPOSAL_STATIC:
 		if (p6->kill) {
-			if (ifp->p_v6statik == NULL) {
-				log_warnx("no v6 static proposal to kill");
-				free(p6);
-				return (1);
-			} else if (p6->xid != ifp->p_v6statik->xid) {
-				log_warnx("v6 static xid mismatch in kill");
-				free(p6);
-				return (1);
-			}
-			log_warnx("v6 static proposal killed");
-			free(ifp->p_v6statik);
-			free(p6);
-			ifp->p_v6statik = NULL;
-			return (0);
+			engine_kill_proposal(p6->xid);
 		} else if (ifp->p_v6statik &&
 		    p6->xid == ifp->p_v6statik->xid) {
 			/* Discard duplicate proposals. */
 			log_warnx("duplicate v4 static proposal dscarded");
 			free(p6);
-			return (1);
+			return;
 		} else {
 			/* Supersede current dhclient proposal. */
-			free(ifp->p_v6statik);
-			ifp->p_v6statik = p6;
-			log_warnx("v4 static proposal superseded");
-			if (ifp->p_slaac != NULL) {
-				dst = &p6->rtdns[p6->rtdns_len];
-				len = sizeof(p6->rtdns) - p6->rtdns_len;
-				if (len > ifp->p_slaac->rtdns_len)
-					len =  ifp->p_slaac->rtdns_len;
-				memcpy(dst, ifp->p_v6statik->rtdns, len);
-				p6->rtdns_len += len;
-				/* XXX search? append? uniqueness? */
+			if (ifp->p_v6statik != NULL) {
+				log_warnx("v6statik proposal superseded");
+				engine_kill_proposal(ifp->p_v6statik->xid);
 			}
-			memcpy(imsg->data, p6, sizeof(struct imsg_v6proposal));
+			ifp->p_v6statik = p6;
+			engine_add_v6address(ifp->p_v6statik);
+			engine_add_v6routes(ifp->p_v6statik);
 		}
 		break;
 	default:
 		log_warnx("Unknown v6 source: %d", p6->source);
-		return (1);
+		return;
 	}
 
-	return (0);
+	engine_resolv_conf_contents(ifp);
 }
 
 void
 engine_kill_proposal(int xid)
 {
+	struct imsg_supersede_proposal	sp;
 	struct interface *ifp;
 
+	memset(&sp, 0, sizeof(sp));
+	sp.xid = xid;
+
 	LIST_FOREACH(ifp, &engine_conf->interface_list, entry) {
-		if (ifp->p_dhclient->xid == xid) {
+		if (ifp->p_dhclient != NULL && ifp->p_dhclient->xid == xid) {
+			sp.source = RTP_PROPOSAL_DHCLIENT;
+			sp.rdomain = ifp->p_dhclient->rdomain;
+			engine_delete_v4routes(ifp->p_dhclient);
+			engine_delete_v4address(ifp->p_dhclient);
 			free(ifp->p_dhclient);
 			ifp->p_dhclient = NULL;
 			break;
 		}
-		if (ifp->p_v4statik->xid == xid) {
+		if (ifp->p_v4statik != NULL && ifp->p_v4statik->xid == xid) {
+			sp.source = RTP_PROPOSAL_STATIC;
+			sp.rdomain = ifp->p_v4statik->rdomain;
+			engine_delete_v4routes(ifp->p_v4statik);
+			engine_delete_v4address(ifp->p_v4statik);
 			free(ifp->p_v4statik);
 			ifp->p_v4statik = NULL;
 			break;
 		}
-		if (ifp->p_slaac->xid == xid) {
+		if (ifp->p_slaac != NULL && ifp->p_slaac->xid == xid) {
+			sp.source = RTP_PROPOSAL_SLAAC;
+			sp.rdomain = ifp->p_slaac->rdomain;
+			engine_delete_v6routes(ifp->p_slaac);
+			engine_delete_v6address(ifp->p_slaac);
 			free(ifp->p_slaac);
 			ifp->p_slaac = NULL;
 			break;
 		}
-		if (ifp->p_v6statik->xid == xid) {
+		if (ifp->p_v6statik != NULL && ifp->p_v6statik->xid == xid) {
+			sp.source = RTP_PROPOSAL_STATIC;
+			sp.rdomain = ifp->p_v6statik->rdomain;
+			engine_delete_v6routes(ifp->p_v6statik);
+			engine_delete_v6address(ifp->p_v6statik);
 			free(ifp->p_v6statik);
 			ifp->p_dhclient = NULL;
 			break;
@@ -688,6 +609,9 @@ engine_kill_proposal(int xid)
 
 	if (ifp == NULL)
 		log_warnx("No proposal with xid %0x to kill", xid);
+	else
+		engine_imsg_compose_frontend(IMSG_SUPERSEDE_PROPOSAL, 0, &sp,
+		    sizeof(sp));
 }
 
 void
@@ -760,4 +684,123 @@ engine_set_source_state(struct imsg *imsg)
 void
 engine_supersede_v4proposal(struct imsg_v4proposal *v4proposal)
 {
+}
+
+void
+engine_resolv_conf_contents(struct interface *ifp)
+{
+	char			 buf[INET6_ADDRSTRLEN];
+	struct in_addr		 v4server;
+	struct in6_addr		 v6server;
+	struct imsg_v4proposal	*dhclient, *v4static;
+	struct imsg_v6proposal	*slaac, *v6static;
+	const char		*pbuf;
+	char			*search, *nss[MAXNS], *contents;
+	char			*src;
+	int			 i, j, rslt, servercnt;
+
+	memset(search, 0, sizeof(search));
+	memset(nss, 0, sizeof(nss));
+
+	dhclient = ifp->p_dhclient;
+	v4static = ifp->p_v4statik;
+	slaac = ifp->p_slaac;
+	v6static = ifp->p_v6statik;
+
+	if ((dhclient->rtsearch_len > 0) ||
+	    (v4static->rtsearch_len > 0) ||
+	    (slaac->rtsearch_len > 0) ||
+	    (v6static->rtsearch_len > 0)){
+		rslt = asprintf(&search, "search %.*s %.*s %.*s %.*s\n",
+		    dhclient->rtsearch_len, dhclient->rtsearch,
+		    v4static->rtsearch_len, v4static->rtsearch,
+		    slaac->rtsearch_len, slaac->rtsearch,
+		    v6static->rtsearch_len, v6static->rtsearch);
+		if (rslt == -1)
+			search = NULL;
+	}
+
+	j = 0;
+
+	servercnt = dhclient->rtdns_len / sizeof(struct in_addr);
+	if (servercnt > MAXNS)
+		servercnt = MAXNS;
+	src = dhclient->rtdns;
+	for (i = 0; i < servercnt; i++) {
+		memcpy(&v4server.s_addr, src, sizeof(v4server.s_addr));
+		rslt = asprintf(&nss[i], "nameserver %s\n",
+		    inet_ntoa(v4server));
+		if (rslt == -1) {
+			nss[j++] = NULL;
+			log_warn("IPv4 nameserver");
+		}
+		src += sizeof(struct in_addr);
+	}
+	servercnt = v4static->rtdns_len / sizeof(struct in_addr);
+	if (servercnt > MAXNS - j)
+		servercnt = MAXNS - j;
+	src = v4static->rtdns;
+	for (i = 0; i < servercnt; i++) {
+		memcpy(&v4server.s_addr, src, sizeof(v4server.s_addr));
+		rslt = asprintf(&nss[i], "nameserver %s\n",
+		    inet_ntoa(v4server));
+		if (rslt == -1) {
+			nss[j++] = NULL;
+			log_warn("IPv4 nameserver");
+		}
+		src += sizeof(struct in_addr);
+	}
+
+	servercnt = slaac->rtdns_len / sizeof(struct in6_addr);
+	if (servercnt > MAXNS - j)
+		servercnt = MAXNS - j;
+	src = slaac->rtdns;
+	for (i = 0; i < servercnt; i++) {
+		memcpy(&v6server, src, sizeof(v6server));
+		pbuf = inet_ntop(AF_INET6, &v6server, buf, INET_ADDRSTRLEN);
+		if (pbuf) {
+			rslt = asprintf(&nss[i], "nameserver %s\n", pbuf);
+			if (rslt == -1) {
+				nss[j++] = NULL;
+				log_warn("IPv6 nameserver");
+			}
+		} else {
+			nss[i] = NULL;
+			log_warn("IPv6 nameserver");
+		}
+		src += sizeof(struct in_addr);
+	}
+	servercnt = v6static->rtdns_len / sizeof(struct in6_addr);
+	if (servercnt > MAXNS - j)
+		servercnt = MAXNS - j;
+	src = v6static->rtdns;
+	for (i = 0; i < servercnt; i++) {
+		memcpy(&v6server, src, sizeof(v6server));
+		pbuf = inet_ntop(AF_INET6, &v6server, buf, INET_ADDRSTRLEN);
+		if (pbuf) {
+			rslt = asprintf(&nss[i], "nameserver %s\n", pbuf);
+			if (rslt == -1) {
+				nss[j++] = NULL;
+				log_warn("IPv6 nameserver");
+			}
+		} else {
+			nss[i] = NULL;
+			log_warn("IPv6 nameserver");
+		}
+		src += sizeof(struct in_addr);
+	}
+
+	rslt = asprintf(&contents, "# Created by netcfgd\n%s%s%s%s",
+	    search, nss[0], nss[1], nss[2]);
+	if (rslt == -1) {
+		log_warn("resolv.conf contents");
+	} else {
+		engine_imsg_compose_main(IMSG_RESOLV_CONF, 0, contents,
+		    strlen(contents));
+		free(contents);
+	}
+
+	for (i = 0; i < MAXNS; i++)
+		free(nss[i]);
+	free(search);
 }

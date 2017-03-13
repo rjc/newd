@@ -60,11 +60,18 @@ enum imsg_type {
 	IMSG_RECONF_END,
 	IMSG_SOCKET_IPC,
 	IMSG_SEND_V4PROPOSAL,
+	IMSG_SUPERSEDE_PROPOSAL,
 	IMSG_SEND_V6PROPOSAL,
-	IMSG_EXECUTE_V4PROPOSAL,
-	IMSG_SUPERSEDE_V4PROPOSAL,
-	IMSG_EXECUTE_V6PROPOSAL,
-	IMSG_SUPERSEDE_V6PROPOSAL
+	IMSG_DELETE_V4ADDRESS,
+	IMSG_DELETE_V6ADDRESS,
+	IMSG_ADD_V4ADDRESS,
+	IMSG_ADD_V6ADDRESS,
+	IMSG_DELETE_V4ROUTE,
+	IMSG_DELETE_V6ROUTE,
+	IMSG_ADD_V4ROUTE,
+	IMSG_ADD_V6ROUTE,
+	IMSG_SET_MTU,
+	IMSG_RESOLV_CONF
 };
 
 enum {
@@ -111,13 +118,11 @@ struct imsg_v4proposal {
 	uint8_t		rtstatic[RTSTATIC_LEN];
 	uint8_t		rtsearch[RTSEARCH_LEN];
 	uint8_t		rtdns[RTDNS_LEN];
-	uint8_t		altrtdns[RTDNS_LEN];
 	struct in_addr	ifa;
 	struct in_addr	netmask;
 	unsigned int	rtstatic_len;
 	unsigned int	rtsearch_len;
 	unsigned int	rtdns_len;
-	unsigned int	altrtdns_len;
 	int		xid;
 	unsigned int	index;
 	int		rdomain;
@@ -132,13 +137,11 @@ struct imsg_v6proposal {
 	uint8_t		rtstatic[RTSTATIC_LEN];
 	uint8_t		rtsearch[RTSEARCH_LEN];
 	uint8_t		rtdns[RTDNS_LEN];
-	uint8_t		altrtdns[RTDNS_LEN];
 	struct in6_addr	ifa;
 	struct in6_addr	netmask;
 	unsigned int	rtstatic_len;
 	unsigned int	rtsearch_len;
 	unsigned int	rtdns_len;
-	unsigned int	altrtdns_len;
 	int		xid;
 	unsigned int	index;
 	int		rdomain;
@@ -147,6 +150,63 @@ struct imsg_v6proposal {
 	int		addrs;
 	int		inits;
 	int		kill;
+};
+
+struct imsg_supersede_proposal {
+	unsigned int	index;
+	int		source;
+	int		xid;
+	int		rdomain;
+};
+
+struct imsg_delete_v4address {
+	char			name[IF_NAMESIZE];
+	struct sockaddr_in	addr;
+};
+struct imsg_delete_v6address {
+	char			name[IF_NAMESIZE];
+	struct sockaddr_in6	addr;
+};
+struct imsg_add_v4address {
+	char			name[IF_NAMESIZE];
+	struct sockaddr_in	addr;
+	struct sockaddr_in	mask;
+};
+struct imsg_add_v6address {
+	char			name[IF_NAMESIZE];
+	struct sockaddr_in6	addr;
+	struct sockaddr_in6	mask;
+};
+struct imsg_delete_v4route {
+	struct in_addr		dest;
+	struct in_addr		netmask;
+	struct in_addr		gateway;
+	int			index;
+	int			rdomain;
+};
+struct imsg_delete_v6route {
+	struct in6_addr		dest;
+	struct in6_addr		netmask;
+	struct in6_addr		gateway;
+};
+struct imsg_add_v4route {
+	struct in_addr		dest;
+	struct in_addr		netmask;
+	struct in_addr		gateway;
+	struct in_addr		ifa;
+	int			index;
+	int			rdomain;
+	int			addrs;
+	int			flags;
+};
+struct imsg_add_v6route {
+	struct in6_addr		dest;
+	struct in6_addr		netmask;
+	struct in6_addr		gateway;
+};
+struct imsg_set_mtu {
+	char			name[IF_NAMESIZE];
+	int			mtu;
 };
 
 extern uint32_t	 cmd_opts;
@@ -159,9 +219,11 @@ void	merge_config(struct netcfgd_conf *, struct netcfgd_conf *);
 void	imsg_event_add(struct imsgev *);
 int	imsg_compose_event(struct imsgev *, uint16_t, uint32_t, pid_t,
 	    int, void *, uint16_t);
+void	netcfgd_supersede_proposal(struct imsg *);
+void	netcfgd_set_mtu(struct imsg *);
 
-struct netcfgd_conf       *config_new_empty(void);
-void			config_clear(struct netcfgd_conf *);
+struct netcfgd_conf	*config_new_empty(void);
+void			 config_clear(struct netcfgd_conf *);
 
 /* printconf.c */
 void	print_config(struct netcfgd_conf *);
@@ -183,9 +245,13 @@ int	kr_init(void);
 int	kr_get_rtaddrs(int, struct sockaddr *, struct sockaddr **);
 
 /* netcfgd_v4.c	*/
-void	v4_execute_proposal(struct imsg *);
-void	v4_supersede_proposal(struct imsg *);
+void	netcfgd_delete_v4route(struct imsg *);
+void	netcfgd_add_v4route(struct imsg *);
+void	netcfgd_delete_v4address(struct imsg *);
+void	netcfgd_add_v4address(struct imsg *);
 
 /* netcfgd_v6.c	*/
-void	v6_execute_proposal(struct imsg *);
-void	v6_supersede_proposal(struct imsg *);
+void	netcfgd_delete_v6route(struct imsg *);
+void	netcfgd_add_v6route(struct imsg *);
+void	netcfgd_delete_v6address(struct imsg *);
+void	netcfgd_add_v6address(struct imsg *);

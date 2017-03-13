@@ -1,8 +1,7 @@
 /*	$OpenBSD$	*/
 
 /*
- * Copyright (c) 2017 Kenneth R Westerback <krw@openbsd.org>
- * Copyright (c) 2004, 2005 Esben Norby <norby@openbsd.org>
+ * Copyright 2017 Kenneth R Westerback <krw@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,19 +16,37 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <sys/socket.h>
+#include <sys/uio.h>
 
-void	 engine(int, int);
-int	 engine_imsg_compose_frontend(int, pid_t, void *, uint16_t);
-int	 engine_imsg_compose_main(int, pid_t, void *, uint16_t);
+#include <net/if.h>
+#include <net/route.h>
 
-void	engine_delete_v4routes(struct imsg_v4proposal *);
-void	engine_add_v4routes(struct imsg_v4proposal *);
-void	engine_delete_v4address(struct imsg_v4proposal *);
-void	engine_add_v4address(struct imsg_v4proposal *);
+#include <netinet/in.h>
 
-void	engine_delete_v6routes(struct imsg_v6proposal *);
-void	engine_add_v6routes(struct imsg_v6proposal *);
-void	engine_delete_v6address(struct imsg_v6proposal *);
-void	engine_add_v6address(struct imsg_v6proposal *);
+#include <event.h>
+#include <imsg.h>
+#include <log.h>
 
-void	engine_resolv_conf_contents(struct interface *);
+#include "netcfgd.h"
+#include "engine.h"
+
+void
+engine_delete_v6routes(struct imsg_v6proposal *v6proposal)
+{
+}
+
+void
+engine_add_v6routes(struct imsg_v6proposal *v6proposal)
+{
+}
+
+void
+engine_delete_v6address(struct imsg_v6proposal *v6proposal)
+{
+}
+
+void
+engine_add_v6address(struct imsg_v6proposal *v6proposal)
+{
+}

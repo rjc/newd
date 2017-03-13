@@ -31,13 +31,21 @@
 #include "netcfgd.h"
 
 void
-v6_execute_proposal(struct imsg *imsg)
+netcfgd_delete_v6address(struct imsg *imsg)
 {
-	log_warnx("Executing a v6 proposal");
 }
 
 void
-v6_supersede_proposal(struct imsg *imsg)
+netcfgd_add_v6address(struct imsg *imsg)
 {
-	log_warnx("Superseding a v6 proposal");
+}
+
+void
+netcfgd_delete_v6route(struct imsg *imsg)
+{
+}
+
+void
+netcfgd_add_v6route(struct imsg *imsg)
+{
 }

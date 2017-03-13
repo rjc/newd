@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+
 
 /*
  * Copyright (c) 2017 Kenneth R Westerback <krw@openbsd.org>
@@ -18,7 +18,9 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/sockio.h>
 #include <sys/syslog.h>
 #include <sys/wait.h>
 
@@ -32,6 +34,7 @@
 #include <event.h>
 #include <imsg.h>
 #include <pwd.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -404,6 +407,7 @@ main_dispatch_engine(int fd, short event, void *bula)
 {
 	struct imsgev	*iev = bula;
 	struct imsgbuf  *ibuf;
+	FILE		*fp;
 	struct imsg	 imsg;
 	ssize_t		 n;
 	int		 shut = 0;
@@ -430,17 +434,45 @@ main_dispatch_engine(int fd, short event, void *bula)
 			break;
 
 		switch (imsg.hdr.type) {
-		case IMSG_EXECUTE_V4PROPOSAL:
-			v4_execute_proposal(&imsg);
+		case IMSG_SUPERSEDE_PROPOSAL:
+			netcfgd_supersede_proposal(&imsg);
 			break;
-		case IMSG_EXECUTE_V6PROPOSAL:
-			v6_execute_proposal(&imsg);
+		case IMSG_DELETE_V4ADDRESS:
+			netcfgd_delete_v4address(&imsg);
 			break;
-		case IMSG_SUPERSEDE_V4PROPOSAL:
-			v4_supersede_proposal(&imsg);
+		case IMSG_DELETE_V6ADDRESS:
+			netcfgd_delete_v6address(&imsg);
 			break;
-		case IMSG_SUPERSEDE_V6PROPOSAL:
-			v6_supersede_proposal(&imsg);
+		case IMSG_ADD_V4ADDRESS:
+			netcfgd_add_v4address(&imsg);
+			break;
+		case IMSG_ADD_V6ADDRESS:
+			netcfgd_add_v6address(&imsg);
+			break;
+		case IMSG_DELETE_V4ROUTE:
+			netcfgd_delete_v4route(&imsg);
+			break;
+		case IMSG_DELETE_V6ROUTE:
+			netcfgd_delete_v6route(&imsg);
+			break;
+		case IMSG_ADD_V4ROUTE:
+			netcfgd_add_v4route(&imsg);
+			break;
+		case IMSG_ADD_V6ROUTE:
+			netcfgd_add_v6route(&imsg);
+			break;
+		case IMSG_RESOLV_CONF:
+			fp = fopen("/etc/resolv.conf", "w");
+			if (fp == NULL) {
+				log_warn("/etc/resolv.conf");
+				break;
+			}
+			fprintf(fp, "%.*s", (int)(n - offsetof(struct imsg,
+			    data)), (char *)imsg.data);
+			fclose(fp);
+			break;
+		case IMSG_SET_MTU:
+			netcfgd_set_mtu(&imsg);
 			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
@@ -643,4 +675,49 @@ config_clear(struct netcfgd_conf *conf)
 	merge_config(conf, xconf);
 
 	free(conf);
+}
+
+void
+netcfgd_supersede_proposal(struct imsg *imsg)
+{
+	struct rt_msghdr		rtm;
+	struct imsg_supersede_proposal	sp;
+	ssize_t				rlen;
+
+	memset(&rtm, 0, sizeof(rtm));
+	memcpy(&sp, imsg->data, sizeof(sp));
+
+	/* Supersede proposal. */
+	rtm.rtm_version = RTM_VERSION;
+	rtm.rtm_msglen = sizeof(rtm);
+	rtm.rtm_flags = RTF_PROTO2;
+	rtm.rtm_type = RTM_PROPOSAL;
+
+	rtm.rtm_index = sp.index;
+	rtm.rtm_priority = sp.source;
+	rtm.rtm_seq = sp.xid;
+	rtm.rtm_tableid = sp.rdomain;
+
+	rlen = write(kr_state.route_fd, &rtm, rtm.rtm_msglen);
+	if (rlen == -1)
+		log_warn("v4_supersede_proposal %0x", sp.xid);
+	else if (rlen < (int)rtm.rtm_msglen)
+		log_warnx("v4_supersede_proposal short write (%zd < %u)",
+		    rlen, rtm.rtm_msglen);
+}
+
+void
+netcfgd_set_mtu(struct imsg *imsg)
+{
+	struct imsg_set_mtu	 sm;
+	struct ifreq		 ifr;
+
+	memset(&ifr, 0, sizeof(ifr));
+	memcpy(&sm, imsg->data, sizeof(sm));
+
+	strlcpy(ifr.ifr_name, sm.name, sizeof(ifr.ifr_name));
+		ifr.ifr_mtu = sm.mtu;
+
+	if (ioctl(kr_state.inet_fd, SIOCSIFMTU, &ifr) == -1)
+		log_warn("SIOCSIFMTU (%d)", sm.mtu);
 }

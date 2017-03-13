@@ -44,529 +44,139 @@
 
 #include "netcfgd.h"
 
-void	v4_flush_routes(struct imsg_v4proposal *);
-void	v4_add_routes(struct imsg_v4proposal *);
-void	v4_add_direct_route(int, struct in_addr, struct in_addr, struct in_addr);
-void	v4_add_route(int, struct in_addr, struct in_addr, struct in_addr,
-	    struct in_addr, int, int);
-void	v4_resolv_conf_contents(struct imsg_v4proposal *v4proposal);
+void
+netcfgd_delete_v4address(struct imsg *imsg)
+{
+	struct ifaliasreq		 ifaliasreq;
+	struct imsg_delete_v4address	 dv4;
+	struct sockaddr_in		*in;
 
-void	v4_delete_route(struct rt_msghdr *);
-int	v4_check_route_label(struct sockaddr_rtlabel *);
+	memcpy(&dv4, imsg->data, sizeof(dv4));
+	memset(&ifaliasreq, 0, sizeof(ifaliasreq));
 
-#define	ROUTE_LABEL_NONE		1
-#define	ROUTE_LABEL_NOT_NETCFGD		2
-#define	ROUTE_LABEL_NETCFGD_OURS	3
-#define	ROUTE_LABEL_NETCFGD_UNKNOWN	4
-#define	ROUTE_LABEL_NETCFGD_LIVE	5
-#define	ROUTE_LABEL_NETCFGD_DEAD	6
+	strncpy(ifaliasreq.ifra_name, dv4.name, sizeof(ifaliasreq.ifra_name));
+
+	in = (struct sockaddr_in *)&ifaliasreq.ifra_addr;
+	memcpy(in, &dv4.addr, sizeof(*in));
+
+	if (ioctl(kr_state.inet_fd, SIOCDIFADDR, &ifaliasreq) == -1)
+		log_warn("v4_delete_address %s", inet_ntoa(in->sin_addr));
+}
 
 void
-v4_execute_proposal(struct imsg *imsg)
+netcfgd_add_v4address(struct imsg *imsg)
 {
-	struct imsg_v4proposal	 v4proposal;
-	struct ifaliasreq	 ifaliasreq;
-	struct ifreq		 ifr;
-	char			 name[IF_NAMESIZE];
-	struct in_addr		 addr, mask;
-	struct ifaddrs		*ifap, *ifa;
-	struct sockaddr_in	*in;
-	int			 added = 0;
+	struct ifaliasreq		 ifaliasreq;
+	struct imsg_add_v4address	 av4;
+	struct sockaddr_in		*in;
 
-	memcpy(&v4proposal, imsg->data, sizeof(v4proposal));
-	if (if_indextoname(v4proposal.index, name) == NULL)
-		fatal("if_indextoname(%d) failed", v4proposal.index);
+	memcpy(&av4, imsg->data, sizeof(av4));
+	memset(&ifaliasreq, 0, sizeof(ifaliasreq));
 
-	/* 1) Delete current addresses. */
-
-	if (getifaddrs(&ifap) != 0)
-		fatal("delete_addresses getifaddrs");
-
-	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
-		if ((ifa->ifa_flags & IFF_LOOPBACK) ||
-		    (ifa->ifa_flags & IFF_POINTOPOINT) ||
-		    (!(ifa->ifa_flags & IFF_UP)) ||
-		    (ifa->ifa_addr->sa_family != AF_INET) ||
-		    (strcmp(name, ifa->ifa_name) != 0))
-			continue;
-
-		memcpy(&addr, &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr,
-		    sizeof(addr));
-		memcpy(&mask,
-		    &((struct sockaddr_in *)ifa->ifa_netmask)->sin_addr,
-		    sizeof(mask));
-
-		if (((v4proposal.addrs & RTA_IFA) != 0) &&
-		    ((v4proposal.addrs & RTA_NETMASK) != 0) &&
-		    v4proposal.kill != 0 &&
-		    v4proposal.ifa.s_addr == addr.s_addr &&
-		    v4proposal.netmask.s_addr == mask.s_addr) {
-			/* No need to delete address we are going to add! */
-			added = 1;
-			continue;
-		}
-
-		memset(&ifaliasreq, 0, sizeof(ifaliasreq));
-		strncpy(ifaliasreq.ifra_name, name,
-		    sizeof(ifaliasreq.ifra_name));
-
-		in = (struct sockaddr_in *)&ifaliasreq.ifra_addr;
-		in->sin_family = AF_INET;
-		in->sin_len = sizeof(ifaliasreq.ifra_addr);
-		in->sin_addr.s_addr = addr.s_addr;
-
-		if (ioctl(kr_state.inet_fd, SIOCDIFADDR, &ifaliasreq) == -1) {
-			if (errno != EADDRNOTAVAIL)
-				log_warn("SIOCDIFADDR failed (%s)",
-				    inet_ntoa(addr));
-		}
-	}
-
-	freeifaddrs(ifap);
-
-	/* 2) Flush routes. */
-	v4_flush_routes(&v4proposal);
-
-	/* 3) Set MTU.  XXX Set to what for 'kill'ed proposals? */
-	if (((v4proposal.inits & RTV_MTU) != 0) && v4proposal.mtu != 0) {
-		memset(&ifr, 0, sizeof(ifr));
-		strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-		ifr.ifr_mtu = v4proposal.mtu;
-		if (ioctl(kr_state.inet_fd, SIOCSIFMTU, &ifr) == -1)
-			log_warn("SIOCSIFMTU failed (%d)", v4proposal.mtu);
-	}
+	strncpy(ifaliasreq.ifra_name, av4.name, sizeof(ifaliasreq.ifra_name));
 
 	/*
-	 * 4) Add address & netmask. No need to set broadcast
-	 *    address. Kernel can figure it out.
+	 * Add address & netmask. No need to set broadcast
+	 * address. Kernel can figure it out.
 	 */
-	if (v4proposal.kill == 0 && added == 0) {
-		memset(&ifaliasreq, 0, sizeof(ifaliasreq));
-		strncpy(ifaliasreq.ifra_name, name,
-		    sizeof(ifaliasreq.ifra_name));
+	in = (struct sockaddr_in *)&ifaliasreq.ifra_addr;
+	memcpy(in, &av4.addr, sizeof(*in));
 
-		in = (struct sockaddr_in *)&ifaliasreq.ifra_addr;
-		in->sin_family = AF_INET;
-		in->sin_len = sizeof(ifaliasreq.ifra_addr);
-		in->sin_addr.s_addr = v4proposal.ifa.s_addr;
+	in = (struct sockaddr_in *)&ifaliasreq.ifra_mask;
+	memcpy(in, &av4.mask, sizeof(*in));
 
-		in = (struct sockaddr_in *)&ifaliasreq.ifra_mask;
-		in->sin_family = AF_INET;
-		in->sin_len = sizeof(ifaliasreq.ifra_mask);
-		in->sin_addr.s_addr = v4proposal.netmask.s_addr;
-
-		if (ioctl(kr_state.inet_fd, SIOCAIFADDR, &ifaliasreq) == -1)
-			log_warn("SIOCAIFADDR failed (%s)", inet_ntoa(addr));
-	}
-
-	if (v4proposal.kill == 0) {
-		/* 5) Add static routes (including default route). */
-		if ((v4proposal.addrs & RTA_STATIC) != 0)
-			v4_add_routes(&v4proposal);
-		/* 6) Update /etc/resolv.conf. */
-		if ((v4proposal.addrs & (RTA_SEARCH | RTA_DNS)) != 0)
-			v4_resolv_conf_contents(&v4proposal);
-	}
+	if (ioctl(kr_state.inet_fd, SIOCAIFADDR, &ifaliasreq) == -1)
+		log_warn("v4_add_address %s", inet_ntoa(av4.addr.sin_addr));
 }
 
 void
-v4_supersede_proposal(struct imsg *imsg)
+netcfgd_delete_v4route(struct imsg *imsg)
 {
-	struct rt_msghdr	 rtm;
-	struct imsg_v4proposal	*v4proposal;
-	ssize_t			 rlen;
+	static int			seqno;
+	struct rt_msghdr		rtm;
+	struct imsg_delete_v4route	dv4;
+	struct iovec			iov[4];
+	int				iovcnt = 0;
 
-	memset(&rtm, 0, sizeof(rtm));
-	v4proposal = imsg->data;
-
-	/* Supersede proposal. */
-	rtm.rtm_version = RTM_VERSION;
-	rtm.rtm_msglen = sizeof(rtm);
-	rtm.rtm_flags = RTF_PROTO2;
-	rtm.rtm_type = RTM_PROPOSAL;
-
-	rtm.rtm_index = v4proposal->index;
-	rtm.rtm_priority = v4proposal->source;
-	rtm.rtm_seq = v4proposal->xid;
-	rtm.rtm_tableid = v4proposal->rdomain;
-
-	rlen = write(kr_state.route_fd, &rtm, rtm.rtm_msglen);
-	if (rlen == -1) {
-		if (errno != ESRCH)
-			fatal("RTM_PROPOSAL write");
-	} else if (rlen < (int)rtm.rtm_msglen)
-		fatalx("short RTM_PROPOSAL write (%zd)\n", rlen);
-}
-
-void
-v4_flush_routes(struct imsg_v4proposal *v4proposal)
-{
-	struct sockaddr *rti_info[RTAX_MAX];
-	int mib[7];
-	size_t needed;
-	char *lim, *buf = NULL, *bufp, *next, *errmsg = NULL;
-	struct rt_msghdr *rtm;
-	struct sockaddr *sa;
-	struct sockaddr_in *sa_in;
-	struct sockaddr_rtlabel *sa_rl;
-
-	mib[0] = CTL_NET;
-	mib[1] = PF_ROUTE;
-	mib[2] = 0;
-	mib[3] = AF_INET;
-	mib[4] = NET_RT_FLAGS;
-	mib[5] = RTF_GATEWAY;
-	mib[6] = v4proposal->rdomain;
-
-	while (1) {
-		if (sysctl(mib, 7, NULL, &needed, NULL, 0) == -1) {
-			errmsg = "sysctl size of routes:";
-			break;
-		}
-		if (needed == 0) {
-			free(buf);
-			return;
-		}
-		if ((bufp = realloc(buf, needed)) == NULL) {
-			errmsg = "routes buf realloc:";
-			break;
-		}
-		buf = bufp;
-		if (sysctl(mib, 7, buf, &needed, NULL, 0) == -1) {
-			if (errno == ENOMEM)
-				continue;
-			errmsg = "sysctl retrieval of routes:";
-			break;
-		}
-		break;
-	}
-
-	if (errmsg) {
-		log_warn("route cleanup failed - %s (msize=%zu)", errmsg,
-		    needed);
-		free(buf);
-		return;
-	}
-
-	lim = buf + needed;
-	for (next = buf; next < lim; next += rtm->rtm_msglen) {
-		rtm = (struct rt_msghdr *)next;
-		if (rtm->rtm_version != RTM_VERSION)
-			continue;
-
-		sa = (struct sockaddr *)(next + rtm->rtm_hdrlen);
-		kr_get_rtaddrs(rtm->rtm_addrs, sa, rti_info);
-
-		sa_rl = (struct sockaddr_rtlabel *)rti_info[RTAX_LABEL];
-		sa_in = (struct sockaddr_in *)rti_info[RTAX_NETMASK];
-
-		switch (v4_check_route_label(sa_rl)) {
-		case ROUTE_LABEL_NETCFGD_OURS:
-		case ROUTE_LABEL_NETCFGD_DEAD:
-			/*
-			 * Always delete routes we labeled and labels from
-			 * processes that do not exist.
-			 */
-			v4_delete_route(rtm);
-			break;
-		case ROUTE_LABEL_NETCFGD_LIVE:
-		case ROUTE_LABEL_NETCFGD_UNKNOWN:
-			/* Another(?) netcfgd's responsibility. */
-			break;
-		case ROUTE_LABEL_NONE:
-		case ROUTE_LABEL_NOT_NETCFGD:
-			/* Delete default routes on our interface. */
-			if (rtm->rtm_index == v4proposal->index &&
-			    sa_in &&
-			    sa_in->sin_addr.s_addr == INADDR_ANY &&
-			    rtm->rtm_tableid == v4proposal->rdomain)
-				v4_delete_route(rtm);
-			break;
-		default:
-			break;
-		}
-	}
-
-	free(buf);
-}
-
-void
-v4_delete_route(struct rt_msghdr *rtm)
-{
-	static int seqno;
-	ssize_t rlen;
-
-	rtm->rtm_type = RTM_DELETE;
-	rtm->rtm_seq = seqno++;
-
-	rlen = write(kr_state.route_fd, (char *)rtm, rtm->rtm_msglen);
-	if (rlen == -1) {
-		if (errno != ESRCH)
-			fatal("RTM_DELETE write");
-	} else if (rlen < (int)rtm->rtm_msglen)
-		fatalx("short RTM_DELETE write (%zd)\n", rlen);
-}
-
-int
-v4_check_route_label(struct sockaddr_rtlabel *label)
-{
-	pid_t pid;
-
-	if (!label)
-		return (ROUTE_LABEL_NONE);
-
-	if (strncmp("NETCFGD ", label->sr_label, 9) != 0)
-		return (ROUTE_LABEL_NOT_NETCFGD);
-
-	pid = (pid_t)strtonum(label->sr_label + 9, 1, INT_MAX, NULL);
-	if (pid <= 0)
-		return (ROUTE_LABEL_NETCFGD_UNKNOWN);
-
-	if (pid == getpid())
-		return (ROUTE_LABEL_NETCFGD_OURS);
-
-	if (kill(pid, 0) == -1) {
-		if (errno == ESRCH)
-			return (ROUTE_LABEL_NETCFGD_DEAD);
-		else
-			return (ROUTE_LABEL_NETCFGD_UNKNOWN);
-	}
-
-	return (ROUTE_LABEL_NETCFGD_LIVE);
-}
-
-
-void
-v4_add_route(int rdomain, struct in_addr dest_addr, struct in_addr mask_addr,
-    struct in_addr gateway_addr, struct in_addr ifa_addr, int addrs,
-    int flags)
-{
-	struct rt_msghdr	rtm;
-	struct sockaddr_in	dest, gateway, mask, ifa;
-	struct sockaddr_rtlabel label;
-	struct iovec		iov[6];
-	int			iovcnt = 0;
-
-	/* Build RTM header */
-
+	memcpy(&dv4, imsg->data, sizeof(dv4));
 	memset(&rtm, 0, sizeof(rtm));
 
 	rtm.rtm_version = RTM_VERSION;
-	rtm.rtm_type = RTM_ADD;
-	rtm.rtm_tableid = rdomain;
-	rtm.rtm_priority = RTP_NONE;
-	rtm.rtm_msglen = sizeof(rtm);
-	rtm.rtm_addrs = addrs;
-	rtm.rtm_flags = flags;
+        rtm.rtm_type = RTM_DELETE;
+	rtm.rtm_addrs = RTA_DST | RTA_GATEWAY | RTA_NETMASK;
+        rtm.rtm_seq = seqno++;
+
+	rtm.rtm_index = dv4.index;
+	rtm.rtm_tableid = dv4.rdomain;
 
 	iov[iovcnt].iov_base = &rtm;
 	iov[iovcnt++].iov_len = sizeof(rtm);
 
-	if (addrs & RTA_DST) {
-		memset(&dest, 0, sizeof(dest));
+	iov[iovcnt].iov_base = &dv4.dest;
+	iov[iovcnt++].iov_len = sizeof(dv4.dest);
+	rtm.rtm_msglen += sizeof(dv4.dest);
 
-		dest.sin_len = sizeof(dest);
-		dest.sin_family = AF_INET;
-		dest.sin_addr.s_addr = dest_addr.s_addr;
+	iov[iovcnt].iov_base = &dv4.gateway;
+	iov[iovcnt++].iov_len = sizeof(dv4.gateway);
+	rtm.rtm_msglen += sizeof(dv4.gateway);
 
-		rtm.rtm_msglen += sizeof(dest);
-
-		iov[iovcnt].iov_base = &dest;
-		iov[iovcnt++].iov_len = sizeof(dest);
-	}
-
-	if (addrs & RTA_GATEWAY) {
-		memset(&gateway, 0, sizeof(gateway));
-
-		gateway.sin_len = sizeof(gateway);
-		gateway.sin_family = AF_INET;
-		gateway.sin_addr.s_addr = gateway_addr.s_addr;
-
-		rtm.rtm_msglen += sizeof(gateway);
-
-		iov[iovcnt].iov_base = &gateway;
-		iov[iovcnt++].iov_len = sizeof(gateway);
-	}
-
-	if (addrs & RTA_NETMASK) {
-		memset(&mask, 0, sizeof(mask));
-
-		mask.sin_len = sizeof(mask);
-		mask.sin_family = AF_INET;
-		mask.sin_addr.s_addr = mask_addr.s_addr;
-
-		rtm.rtm_msglen += sizeof(mask);
-
-		iov[iovcnt].iov_base = &mask;
-		iov[iovcnt++].iov_len = sizeof(mask);
-	}
-
-	if (addrs & RTA_IFA) {
-		memset(&ifa, 0, sizeof(ifa));
-
-		ifa.sin_len = sizeof(ifa);
-		ifa.sin_family = AF_INET;
-		ifa.sin_addr.s_addr = ifa_addr.s_addr;
-
-		rtm.rtm_msglen += sizeof(ifa);
-
-		iov[iovcnt].iov_base = &ifa;
-		iov[iovcnt++].iov_len = sizeof(ifa);
-	}
-
-	/* Add our label so we can identify the route as our creation. */
-	memset(&label, 0, sizeof(label));
-	label.sr_len = sizeof(label);
-	label.sr_family = AF_UNSPEC;
-	snprintf(label.sr_label, sizeof(label.sr_label), "NETCFGD %d",
-	    (int)getpid());
-
-	rtm.rtm_addrs |= RTA_LABEL;
-	rtm.rtm_msglen += sizeof(label);
-	iov[iovcnt].iov_base = &label;
-	iov[iovcnt++].iov_len = sizeof(label);
+	iov[iovcnt].iov_base = &dv4.netmask;
+	iov[iovcnt++].iov_len = sizeof(dv4.netmask);
+	rtm.rtm_msglen += sizeof(dv4.netmask);
 
 	if (writev(kr_state.route_fd, iov, iovcnt) == -1)
+		log_warn("v4_delete_route");
+}
+
+void
+netcfgd_add_v4route(struct imsg *imsg)
+{
+	struct rt_msghdr rtm;
+	struct imsg_add_v4route av4;
+	struct iovec iov[5];
+	int iovcnt = 0;
+
+	/* Build RTM header */
+
+	memset(&rtm, 0, sizeof(rtm));
+	memcpy(&av4, imsg->data, sizeof(av4));
+
+	rtm.rtm_version = RTM_VERSION;
+	rtm.rtm_type = RTM_ADD;
+	rtm.rtm_priority = RTP_NONE;
+	rtm.rtm_msglen = sizeof(rtm);
+
+	rtm.rtm_tableid = av4.rdomain;
+	rtm.rtm_addrs = av4.addrs;
+	rtm.rtm_flags = av4.flags;
+
+	iov[iovcnt].iov_base = &rtm;
+	iov[iovcnt++].iov_len = sizeof(rtm);
+
+	if ((av4.addrs & RTA_DST) != 0) {
+		iov[iovcnt].iov_base = &av4.dest;
+		iov[iovcnt++].iov_len = sizeof(av4.dest);
+		rtm.rtm_msglen += sizeof(av4.dest);
+	}
+
+	if ((av4.addrs & RTA_GATEWAY) != 0) {
+		iov[iovcnt].iov_base = &av4.gateway;
+		iov[iovcnt++].iov_len = sizeof(av4.gateway);
+		rtm.rtm_msglen += sizeof(av4.gateway);
+	}
+
+	if ((av4.addrs & RTA_NETMASK) != 0) {
+		iov[iovcnt].iov_base = &av4.netmask;
+		iov[iovcnt++].iov_len = sizeof(av4.netmask);
+		rtm.rtm_msglen += sizeof(av4.netmask);
+	}
+
+	if ((av4.addrs & RTA_IFA) != 0) {
+		iov[iovcnt].iov_base = &av4.ifa;
+		iov[iovcnt++].iov_len = sizeof(av4.ifa);
+		rtm.rtm_msglen += sizeof(av4.ifa);
+	}
+
+	if (writev(kr_state.route_fd, iov, iovcnt) != -1)
 		log_warn("v4_add_route");
-}
-
-void
-v4_add_direct_route(int rdomain, struct in_addr dest, struct in_addr mask,
-    struct in_addr iface)
-{
-	struct in_addr ifa = { INADDR_ANY };
-
-	v4_add_route(rdomain, dest, mask, iface, ifa,
-	    RTA_DST | RTA_NETMASK | RTA_GATEWAY, RTF_CLONING | RTF_STATIC);
-}
-
-void
-v4_add_routes(struct imsg_v4proposal *v4proposal)
-{
-	struct in_addr	 dest, netmask, gateway, iface;
-	int		 bits;
-	unsigned int	 i, bytes;
-
-	memcpy(&iface.s_addr, &v4proposal->ifa, sizeof(iface));
-
-	i = 0;
-	while (i < v4proposal->rtstatic_len) {
-		bits = v4proposal->rtstatic[i++];
-		bytes = (bits + 7) / 8;
-
-		if (bytes > sizeof(netmask))
-			return;
-		else if (i + bytes > v4proposal->rtstatic_len)
-			return;
-
-		if (bits)
-			netmask.s_addr = htonl(0xffffffff << (32 - bits));
-		else
-			netmask.s_addr = INADDR_ANY;
-
-		memset(&dest, 0, sizeof(dest));
-		memcpy(&dest.s_addr, &v4proposal->rtstatic[i], bytes);
-		dest.s_addr = dest.s_addr & netmask.s_addr;
-		i += bytes;
-
-		memcpy(&gateway, &v4proposal->rtstatic[i], sizeof(gateway));
-		i += sizeof(gateway);
-
-		if (gateway.s_addr == INADDR_ANY)
-			v4_add_direct_route(v4proposal->rdomain, dest,
-			    netmask, iface);
-		else
-			v4_add_route(v4proposal->rdomain, dest, netmask,
-			    gateway, iface,
-			    RTA_DST | RTA_GATEWAY | RTA_NETMASK | RTA_IFA,
-			    RTF_GATEWAY | RTF_STATIC);
-	}
-}
-
-void
-v4_resolv_conf_contents(struct imsg_v4proposal *v4proposal)
-{
-	char		 buf[INET6_ADDRSTRLEN];
-	struct stat	 sb;
-	struct in_addr	 server;
-	struct in6_addr	 server6;
-	ssize_t		 tailn;
-	char		*resolv_tail;
-	FILE		*fp;
-	char		*src;
-	const char	*pbuf;
-	int		 i, servercnt, tailfd;
-
-	fp = fopen("/etc/resolv.conf", "w");
-	if (fp == NULL) {
-		log_warn("/etc/resolv.conf");
-		return;
-	}
-
-	if (v4proposal->kill == 0) {
-		fprintf(fp, "# Generated by netcfgd\n");
-		if ((v4proposal->addrs & RTA_SEARCH) != 0)
-			fprintf(fp, "search %*s\n", v4proposal->rtsearch_len,
-			    v4proposal->rtsearch);
-		if ((v4proposal->addrs & RTA_DNS) != 0) {
-			servercnt = v4proposal->rtdns_len /
-			    sizeof(struct in_addr);
-			src = v4proposal->rtdns;
-			for (i = 0; i < servercnt; i++) {
-				memcpy(&server.s_addr, src,
-				    sizeof(server.s_addr));
-				fprintf(fp, "nameserver %s\n",
-				    inet_ntoa(server));
-				src += sizeof(struct in_addr);
-			}
-			servercnt = v4proposal->altrtdns_len /
-			    sizeof(struct in6_addr);
-			src = v4proposal->altrtdns;
-			for (i = 0; i < servercnt; i++) {
-				memcpy(&server6, src, sizeof(server6));
-				pbuf = inet_ntop(AF_INET6, &server6, buf,
-				    INET_ADDRSTRLEN);
-				if (pbuf)
-					fprintf(fp, "nameserver %s\n", buf);
-				else
-					log_warn("IPv6 nameserver");
-				src += sizeof(struct in6_addr);
-			}
-		}
-
-		tailfd = open("/etc/resolv.conf.tail", O_RDONLY);
-		if (tailfd == -1) {
-			if (errno != ENOENT)
-				log_warn("resolv.conf.tail");
-		} else if (fstat(tailfd, &sb) == -1) {
-			log_warn("resolv.conf.tail");
-		} else {
-			if (sb.st_size > 0 && sb.st_size < SSIZE_MAX) {
-				resolv_tail = malloc(sb.st_size);
-				if (resolv_tail == NULL) {
-					log_warnx("no memory for "
-					    "resolv.conf.tail contents");
-					goto done;
-				}
-				tailn = read(tailfd, resolv_tail, sb.st_size);
-				if (tailn == -1)
-					log_warn("resolv.conf.tail");
-				else if (tailn == 0)
-					log_warnx("resolv.conf.tail: empty");
-				else if (tailn != sb.st_size)
-					log_warnx("resolv.conf.tail: short");
-				else
-					fprintf(fp, "%.*s", (int)tailn,
-					    resolv_tail);
-			}
-done:
-			close(tailfd);
-		}
-	} else {
-		fprintf(fp, "# Killed by netcfgd\n");
-	}
-
-	if (fflush(fp) == EOF)
-		log_warn("/etc/resolv.conf");
-	fclose(fp);
 }
