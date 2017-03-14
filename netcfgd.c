@@ -18,10 +18,12 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include <sys/fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/syslog.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 
 #include <net/if.h>
@@ -33,6 +35,7 @@
 #include <errno.h>
 #include <event.h>
 #include <imsg.h>
+#include <limits.h>
 #include <pwd.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -63,6 +66,8 @@ static int	main_imsg_send_config(struct netcfgd_conf *);
 int	main_reload(void);
 int	main_sendboth(enum imsg_type, void *, uint16_t);
 void	main_showinfo_ctl(struct imsg *);
+
+void	netcfgd_resolv_conf(const char *);
 
 struct netcfgd_conf	*main_conf;
 struct imsgev		*iev_frontend;
@@ -407,7 +412,6 @@ main_dispatch_engine(int fd, short event, void *bula)
 {
 	struct imsgev	*iev = bula;
 	struct imsgbuf  *ibuf;
-	FILE		*fp;
 	struct imsg	 imsg;
 	ssize_t		 n;
 	int		 shut = 0;
@@ -462,13 +466,7 @@ main_dispatch_engine(int fd, short event, void *bula)
 			netcfgd_add_v6route(&imsg);
 			break;
 		case IMSG_RESOLV_CONF:
-			fp = fopen("/etc/resolv.conf", "w");
-			if (fp == NULL) {
-				log_warn("/etc/resolv.conf");
-				break;
-			}
-			fprintf(fp, "%s", (char *)imsg.data);
-			fclose(fp);
+			netcfgd_resolv_conf(imsg.data);
 			break;
 		case IMSG_SET_MTU:
 			netcfgd_set_mtu(&imsg);
@@ -719,4 +717,61 @@ netcfgd_set_mtu(struct imsg *imsg)
 
 	if (ioctl(kr_state.inet_fd, SIOCSIFMTU, &ifr) == -1)
 		log_warn("SIOCSIFMTU (%d)", sm.mtu);
+}
+
+void netcfgd_resolv_conf(const char *contents)
+{
+	struct stat	 sb;
+	FILE		*fp;
+	char		*resolv_tail;
+	ssize_t		 tailn;
+	int		 tailfd;
+
+	fp = fopen("/etc/resolv.conf", "w");
+	if (fp == NULL) {
+		log_warn("/etc/resolv.conf");
+		return;
+	}
+
+	fprintf(fp, "%s", contents);
+
+	tailfd = open("/etc/resolv.conf.tail", O_RDONLY);
+	if (tailfd == -1) {
+		if (errno != ENOENT)
+			log_warn("resolv.conf.tail");
+		goto done;
+	}
+
+	if (fstat(tailfd, &sb) == -1) {
+		log_warn("resolv.conf.tail");
+		goto done;
+	}
+
+	if (sb.st_size >= SSIZE_MAX) {
+		log_warnx("resolv.conf.tail too long");
+		goto done;
+	}
+
+	if (sb.st_size == 0)
+		goto done;
+
+	resolv_tail = malloc(sb.st_size);
+	if (resolv_tail == NULL) {
+		log_warnx("no memory for resolv.conf.tail contents");
+		goto done;
+	}
+
+	tailn = read(tailfd, resolv_tail, sb.st_size);
+	if (tailn == -1)
+		log_warn("resolv.conf.tail");
+	else if (tailn == 0)
+		log_warnx("resolv.conf.tail: empty");
+	else if (tailn != sb.st_size)
+		log_warnx("resolv.conf.tail: short");
+	else
+		fprintf(fp, "%.*s", (int)tailn, resolv_tail);
+
+done:
+	close(tailfd);
+	fclose(fp);
 }
