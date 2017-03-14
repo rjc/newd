@@ -85,14 +85,14 @@ struct interface {
 
 	char			 name[IF_NAMESIZE];
 	unsigned int		 ifindex;
-	int			 dhclient;
-	int			 slaac;
-	int			 v4static;
-	int			 v6static;
-	struct imsg_v4proposal	*p_dhclient;
-	struct imsg_v4proposal	*p_v4static;
-	struct imsg_v6proposal	*p_slaac;
-	struct imsg_v6proposal	*p_v6static;
+	int			 dhclient_ok;
+	int			 slaac_ok;
+	int			 v4static_ok;
+	int			 v6static_ok;
+	struct imsg_v4proposal	*dhclient;
+	struct imsg_v4proposal	*v4static;
+	struct imsg_v6proposal	*slaac;
+	struct imsg_v6proposal	*v6static;
 };
 
 struct netcfgd_conf {

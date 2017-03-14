@@ -38,13 +38,13 @@ print_config(struct netcfgd_conf *conf)
 	LIST_FOREACH(ifp, &conf->interface_list, entry) {
 		printf("interface %s {\n", ifp->name);
 
-		if (ifp->dhclient)
+		if (ifp->dhclient_ok)
 			printf("\tdhclient\n");
-		if (ifp->slaac)
+		if (ifp->slaac_ok)
 			printf("\tslaac\n");
-		if (ifp->v4static)
+		if (ifp->v4static_ok)
 			printf("\tv4static\n");
-		if (ifp->v6static)
+		if (ifp->v6static_ok)
 			printf("\tv6static\n");
 
 		printf("}\n");

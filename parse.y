@@ -179,16 +179,16 @@ policyopts_l	: policyopts_l policyoptsl nl
 		;
 
 policyoptsl	: DHCLIENT {
-			interface->dhclient = 1;
+			interface->dhclient_ok = 1;
 		}
 		| SLAAC {
-			interface->slaac = 1;
+			interface->slaac_ok = 1;
 		}
 		| V4STATIC {
-			interface->v4static = 1;
+			interface->v4static_ok = 1;
 		}
 		| V6STATIC {
-			interface->v6static = 1;
+			interface->v6static_ok = 1;
 		}
 		;
 
@@ -701,10 +701,10 @@ clear_config(struct netcfgd_conf *xconf)
 
 	while ((ifp = LIST_FIRST(&xconf->interface_list)) != NULL) {
 		LIST_REMOVE(ifp, entry);
-		free(ifp->p_dhclient);
-		free(ifp->p_v4static);
-		free(ifp->p_slaac);
-		free(ifp->p_v6static);
+		free(ifp->dhclient);
+		free(ifp->v4static);
+		free(ifp->slaac);
+		free(ifp->v6static);
 		free(ifp);
 	}
 

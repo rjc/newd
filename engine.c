@@ -158,10 +158,10 @@ engine_shutdown(void)
 
 	/* Discard proposals. */
 	while ((ifp = LIST_FIRST(&engine_conf->interface_list)) != NULL) {
-		free(ifp->p_dhclient);
-		free(ifp->p_v4static);
-		free(ifp->p_slaac);
-		free(ifp->p_v6static);
+		free(ifp->dhclient);
+		free(ifp->v4static);
+		free(ifp->slaac);
+		free(ifp->v6static);
 		free(ifp);
 	}
 
@@ -364,17 +364,17 @@ engine_showinfo_ctl(struct imsg *imsg)
 	case IMSG_CTL_SHOW_PROPOSALS:
 		memcpy(&cpid, imsg->data, sizeof(cpid));
 		LIST_FOREACH(ifp, &engine_conf->interface_list, entry) {
-			if (ifp->p_dhclient != NULL)
-				engine_show_v4proposal(imsg, ifp->p_dhclient,
+			if (ifp->dhclient != NULL)
+				engine_show_v4proposal(imsg, ifp->dhclient,
 				    &cpid);
-			if (ifp->p_v4static != NULL)
-				engine_show_v4proposal(imsg, ifp->p_v4static,
+			if (ifp->v4static != NULL)
+				engine_show_v4proposal(imsg, ifp->v4static,
 				    &cpid);
-			if (ifp->p_slaac != NULL)
-				engine_show_v6proposal(imsg, ifp->p_slaac,
+			if (ifp->slaac != NULL)
+				engine_show_v6proposal(imsg, ifp->slaac,
 				    &cpid);
-			if (ifp->p_v6static != NULL)
-				engine_show_v6proposal(imsg, ifp->p_v6static,
+			if (ifp->v6static != NULL)
+				engine_show_v6proposal(imsg, ifp->v6static,
 				    &cpid);
 		}
 		engine_imsg_compose_frontend(IMSG_CTL_END, imsg->hdr.pid, NULL,
@@ -401,14 +401,14 @@ engine_process_v4proposal(struct imsg *imsg)
 	LIST_FOREACH(ifp, &engine_conf->interface_list, entry) {
 		if (ifp->ifindex == p4->index) {
 			if (p4->source == RTP_PROPOSAL_DHCLIENT &&
-			    ifp->dhclient == 0) {
+			    ifp->dhclient_ok == 0) {
 				ifp = NULL;
 				log_warnx("%s not configured for dhclient",
 				    if_indextoname(p4->index, ifname));
 
 			}
 			else if (p4->source == RTP_PROPOSAL_STATIC &&
-			    ifp->v4static == 0) {
+			    ifp->v4static_ok == 0) {
 				ifp = NULL;
 				log_warnx("%s not configured for static v4",
 				    if_indextoname(p4->index, ifname));
@@ -428,42 +428,42 @@ engine_process_v4proposal(struct imsg *imsg)
 		if (p4->kill) {
 			engine_kill_proposal(p4->xid);
 			free(p4);
-		} else if (ifp->p_dhclient != NULL &&
-		    p4->xid == ifp->p_dhclient->xid) {
+		} else if (ifp->dhclient != NULL &&
+		    p4->xid == ifp->dhclient->xid) {
 			/* Discard duplicate proposals. */
 			log_warnx("duplicate dhclient proposal discarded");
 			free(p4);
 			return;
 		} else {
-			if (ifp->p_dhclient != NULL) {
+			if (ifp->dhclient != NULL) {
 				log_warnx("dhclient proposal superseded");
-				engine_kill_proposal(ifp->p_dhclient->xid);
+				engine_kill_proposal(ifp->dhclient->xid);
 			} else
 				log_warnx("new dhclient proposal");
-			ifp->p_dhclient = p4;
-			engine_add_v4address(ifp->p_dhclient);
-			engine_add_v4routes(ifp->p_dhclient);
+			ifp->dhclient = p4;
+			engine_add_v4address(ifp->dhclient);
+			engine_add_v4routes(ifp->dhclient);
 		}
 		break;
 	case RTP_PROPOSAL_STATIC:
 		if (p4->kill) {
 			engine_kill_proposal(p4->xid);
 			free(p4);
-		} else if (ifp->p_v4static &&
-		    p4->xid == ifp->p_v4static->xid) {
+		} else if (ifp->v4static &&
+		    p4->xid == ifp->v4static->xid) {
 			/* Discard duplicate proposals. */
 			log_warnx("duplicate v4 static proposal dscarded");
 			free(p4);
 			return;
 		} else {
-			if (ifp->p_v4static != NULL) {
+			if (ifp->v4static != NULL) {
 				/* Supersede current static proposal. */
 				log_warnx("v4 static proposal superseded");
-				engine_kill_proposal(ifp->p_v4static->xid);
+				engine_kill_proposal(ifp->v4static->xid);
 			}
-			ifp->p_dhclient = p4;
-			engine_add_v4address(ifp->p_dhclient);
-			engine_add_v4routes(ifp->p_dhclient);
+			ifp->dhclient = p4;
+			engine_add_v4address(ifp->dhclient);
+			engine_add_v4routes(ifp->dhclient);
 		}
 		break;
 	default:
@@ -489,14 +489,14 @@ engine_process_v6proposal(struct imsg *imsg)
 	LIST_FOREACH(ifp, &engine_conf->interface_list, entry) {
 		if (ifp->ifindex == p6->index) {
 			if (p6->source == RTP_PROPOSAL_SLAAC &&
-			    ifp->dhclient == 0) {
+			    ifp->dhclient_ok == 0) {
 				ifp = NULL;
 				log_warnx("'%s' not configured for slaac",
 				    if_indextoname(p6->index, ifname));
 
 			}
 			else if (p6->source == RTP_PROPOSAL_STATIC &&
-			    ifp->v6static == 0) {
+			    ifp->v6static_ok == 0) {
 				ifp = NULL;
 				log_warnx("'%s' not configured for static v6",
 				    if_indextoname(p6->index, ifname));
@@ -515,40 +515,40 @@ engine_process_v6proposal(struct imsg *imsg)
 	case RTP_PROPOSAL_SLAAC:
 		if (p6->kill) {
 			engine_kill_proposal(p6->xid);
-		} else if (ifp->p_slaac != NULL &&
-		    p6->xid == ifp->p_slaac->xid) {
+		} else if (ifp->slaac != NULL &&
+		    p6->xid == ifp->slaac->xid) {
 			/* Discard duplicate proposals. */
 			log_warnx("duplicate slaac proposal dscarded");
 			free(p6);
 			return;
 		} else {
-			if (ifp->p_slaac != NULL) {
+			if (ifp->slaac != NULL) {
 				log_warnx("slaac proposal superseded");
-				engine_kill_proposal(ifp->p_slaac->xid);
+				engine_kill_proposal(ifp->slaac->xid);
 			}
-			ifp->p_slaac = p6;
-			engine_add_v6address(ifp->p_slaac);
-			engine_add_v6routes(ifp->p_slaac);
+			ifp->slaac = p6;
+			engine_add_v6address(ifp->slaac);
+			engine_add_v6routes(ifp->slaac);
 		}
 		break;
 	case RTP_PROPOSAL_STATIC:
 		if (p6->kill) {
 			engine_kill_proposal(p6->xid);
-		} else if (ifp->p_v6static &&
-		    p6->xid == ifp->p_v6static->xid) {
+		} else if (ifp->v6static &&
+		    p6->xid == ifp->v6static->xid) {
 			/* Discard duplicate proposals. */
 			log_warnx("duplicate v4 static proposal dscarded");
 			free(p6);
 			return;
 		} else {
 			/* Supersede current dhclient proposal. */
-			if (ifp->p_v6static != NULL) {
+			if (ifp->v6static != NULL) {
 				log_warnx("v6static proposal superseded");
-				engine_kill_proposal(ifp->p_v6static->xid);
+				engine_kill_proposal(ifp->v6static->xid);
 			}
-			ifp->p_v6static = p6;
-			engine_add_v6address(ifp->p_v6static);
-			engine_add_v6routes(ifp->p_v6static);
+			ifp->v6static = p6;
+			engine_add_v6address(ifp->v6static);
+			engine_add_v6routes(ifp->v6static);
 		}
 		break;
 	default:
@@ -569,44 +569,44 @@ engine_kill_proposal(int xid)
 	sp.xid = xid;
 
 	LIST_FOREACH(ifp, &engine_conf->interface_list, entry) {
-		if (ifp->p_dhclient != NULL && ifp->p_dhclient->xid == xid) {
+		if (ifp->dhclient != NULL && ifp->dhclient->xid == xid) {
 			sp.source = RTP_PROPOSAL_DHCLIENT;
-			sp.rdomain = ifp->p_dhclient->rdomain;
-			sp.index = ifp->p_dhclient->index;
-			engine_delete_v4routes(ifp->p_dhclient);
-			engine_delete_v4address(ifp->p_dhclient);
-			free(ifp->p_dhclient);
-			ifp->p_dhclient = NULL;
+			sp.rdomain = ifp->dhclient->rdomain;
+			sp.index = ifp->dhclient->index;
+			engine_delete_v4routes(ifp->dhclient);
+			engine_delete_v4address(ifp->dhclient);
+			free(ifp->dhclient);
+			ifp->dhclient = NULL;
 			break;
 		}
-		if (ifp->p_v4static != NULL && ifp->p_v4static->xid == xid) {
+		if (ifp->v4static != NULL && ifp->v4static->xid == xid) {
 			sp.source = RTP_PROPOSAL_STATIC;
-			sp.rdomain = ifp->p_v4static->rdomain;
-			sp.index = ifp->p_v4static->index;
-			engine_delete_v4routes(ifp->p_v4static);
-			engine_delete_v4address(ifp->p_v4static);
-			free(ifp->p_v4static);
-			ifp->p_v4static = NULL;
+			sp.rdomain = ifp->v4static->rdomain;
+			sp.index = ifp->v4static->index;
+			engine_delete_v4routes(ifp->v4static);
+			engine_delete_v4address(ifp->v4static);
+			free(ifp->v4static);
+			ifp->v4static = NULL;
 			break;
 		}
-		if (ifp->p_slaac != NULL && ifp->p_slaac->xid == xid) {
+		if (ifp->slaac != NULL && ifp->slaac->xid == xid) {
 			sp.source = RTP_PROPOSAL_SLAAC;
-			sp.rdomain = ifp->p_slaac->rdomain;
-			sp.index = ifp->p_slaac->index;
-			engine_delete_v6routes(ifp->p_slaac);
-			engine_delete_v6address(ifp->p_slaac);
-			free(ifp->p_slaac);
-			ifp->p_slaac = NULL;
+			sp.rdomain = ifp->slaac->rdomain;
+			sp.index = ifp->slaac->index;
+			engine_delete_v6routes(ifp->slaac);
+			engine_delete_v6address(ifp->slaac);
+			free(ifp->slaac);
+			ifp->slaac = NULL;
 			break;
 		}
-		if (ifp->p_v6static != NULL && ifp->p_v6static->xid == xid) {
+		if (ifp->v6static != NULL && ifp->v6static->xid == xid) {
 			sp.source = RTP_PROPOSAL_STATIC;
-			sp.rdomain = ifp->p_v6static->rdomain;
-			sp.index = ifp->p_v6static->index;
-			engine_delete_v6routes(ifp->p_v6static);
-			engine_delete_v6address(ifp->p_v6static);
-			free(ifp->p_v6static);
-			ifp->p_dhclient = NULL;
+			sp.rdomain = ifp->v6static->rdomain;
+			sp.index = ifp->v6static->index;
+			engine_delete_v6routes(ifp->v6static);
+			engine_delete_v6address(ifp->v6static);
+			free(ifp->v6static);
+			ifp->dhclient = NULL;
 			break;
 		}
 	}
@@ -668,14 +668,14 @@ engine_set_source_state(struct imsg *imsg)
 		}
 		switch (cpid.source) {
 		case RTP_PROPOSAL_DHCLIENT:
-			ifp->dhclient = newstate;
+			ifp->dhclient_ok = newstate;
 			break;
 		case RTP_PROPOSAL_SLAAC:
-			ifp->slaac = newstate;
+			ifp->slaac_ok = newstate;
 			break;
 		case RTP_PROPOSAL_STATIC:
 			/* XXX v6static */
-			ifp->v4static = newstate;
+			ifp->v4static_ok = newstate;
 			break;
 		default:
 			break;
@@ -700,10 +700,10 @@ engine_resolv_conf_contents(struct interface *ifp)
 
 	memset(nss, 0, sizeof(nss));
 
-	dhclient = ifp->p_dhclient;
-	v4static = ifp->p_v4static;
-	slaac = ifp->p_slaac;
-	v6static = ifp->p_v6static;
+	dhclient = ifp->dhclient;
+	v4static = ifp->v4static;
+	slaac = ifp->slaac;
+	v6static = ifp->v6static;
 
 	search[0] = NULL;
 	if (dhclient && dhclient->rtsearch_len > 0) {
