@@ -615,7 +615,7 @@ engine_kill_proposal(int xid)
 	if (ifp == NULL)
 		log_warnx("No proposal with xid %0x to kill", xid);
 	else
-		engine_imsg_compose_frontend(IMSG_SUPERSEDE_PROPOSAL, 0, &sp,
+		engine_imsg_compose_main(IMSG_SUPERSEDE_PROPOSAL, 0, &sp,
 		    sizeof(sp));
 }
 
