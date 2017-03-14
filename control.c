@@ -274,6 +274,13 @@ control_dispatch_imsg(int fd, short event, void *bula)
 			    NULL, 0);
 			break;
 		case IMSG_CTL_KILL_PROPOSAL:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(payload))
+				break;
+			c->iev.ibuf.pid = imsg.hdr.pid;
+			frontend_imsg_compose_engine(imsg.hdr.type,
+			    imsg.hdr.pid, imsg.data,
+			    imsg.hdr.len - IMSG_HEADER_SIZE);
+			break;
 		case IMSG_CTL_SHOW_PROPOSALS:
 		case IMSG_CTL_SET_SOURCE_STATE:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +
