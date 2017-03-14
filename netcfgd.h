@@ -170,12 +170,12 @@ struct imsg_delete_v6address {
 struct imsg_add_v4address {
 	char			name[IF_NAMESIZE];
 	struct in_addr		addr;
-	struct in_addr		mask;
+	struct in_addr		netmask;
 };
 struct imsg_add_v6address {
 	char			name[IF_NAMESIZE];
 	struct in6_addr		addr;
-	struct in6_addr		mask;
+	struct in6_addr		netmask;
 };
 struct imsg_delete_v4route {
 	struct in_addr		dest;

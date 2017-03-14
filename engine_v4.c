@@ -201,7 +201,7 @@ engine_add_v4address(struct imsg_v4proposal *v4proposal)
 	memset(&av4, 0, sizeof(av4));
 
 	memcpy(&av4.addr, &v4proposal->ifa, sizeof(av4.addr));
-	memcpy(&av4.mask, &v4proposal->netmask, sizeof(av4.mask));
+	memcpy(&av4.netmask, &v4proposal->netmask, sizeof(av4.netmask));
 
 	ifname = if_indextoname(v4proposal->index, av4.name);
 	if (ifname == NULL)

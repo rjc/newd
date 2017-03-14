@@ -88,7 +88,7 @@ netcfgd_add_v4address(struct imsg *imsg)
 	in = (struct sockaddr_in *)&ifaliasreq.ifra_mask;
 	in->sin_family = AF_INET;
 	in->sin_len = sizeof(ifaliasreq.ifra_mask);
-	in->sin_addr.s_addr = av4.mask.s_addr;
+	in->sin_addr.s_addr = av4.netmask.s_addr;
 
 	if (ioctl(kr_state.inet_fd, SIOCAIFADDR, &ifaliasreq) == -1)
 		log_warn("netcfgd_add_v4address %s", inet_ntoa(av4.addr));
@@ -100,7 +100,7 @@ netcfgd_delete_v4route(struct imsg *imsg)
 	static int			seqno;
 	struct rt_msghdr		rtm;
 	struct imsg_delete_v4route	dv4;
-	struct sockaddr_in		dest, gateway, mask;
+	struct sockaddr_in		dest, gateway, netmask;
 	struct iovec			iov[4];
 	int				iovcnt = 0;
 
@@ -135,13 +135,13 @@ netcfgd_delete_v4route(struct imsg *imsg)
 	iov[iovcnt++].iov_len = sizeof(gateway);
 	rtm.rtm_msglen += sizeof(gateway);
 
-	memset(&mask, 0, sizeof(mask));
-	mask.sin_len = sizeof(mask);
-	mask.sin_family = AF_INET;
-	mask.sin_addr.s_addr = dv4.netmask.s_addr;
-	iov[iovcnt].iov_base = &mask;
-	iov[iovcnt++].iov_len = sizeof(mask);
-	rtm.rtm_msglen += sizeof(mask);
+	memset(&netmask, 0, sizeof(netmask));
+	netmask.sin_len = sizeof(netmask);
+	netmask.sin_family = AF_INET;
+	netmask.sin_addr.s_addr = dv4.netmask.s_addr;
+	iov[iovcnt].iov_base = &netmask;
+	iov[iovcnt++].iov_len = sizeof(netmask);
+	rtm.rtm_msglen += sizeof(netmask);
 
 	if (writev(kr_state.route_fd, iov, iovcnt) == -1)
 		log_warn("netcfgd_delete_v4route");
@@ -151,7 +151,7 @@ void
 netcfgd_add_v4route(struct imsg *imsg)
 {
 	struct rt_msghdr rtm;
-	struct sockaddr_in dest, gateway, mask, ifa;
+	struct sockaddr_in dest, gateway, netmask, ifa;
 	struct imsg_add_v4route av4;
 	struct iovec iov[5];
 	int iovcnt = 0;
@@ -160,7 +160,7 @@ netcfgd_add_v4route(struct imsg *imsg)
 
 	memset(&rtm, 0, sizeof(rtm));
 	memset(&dest, 0, sizeof(dest));
-	memset(&mask, 0, sizeof(mask));
+	memset(&netmask, 0, sizeof(netmask));
 	memset(&gateway, 0, sizeof(gateway));
 
 	memcpy(&av4, imsg->data, sizeof(av4));
@@ -196,12 +196,12 @@ netcfgd_add_v4route(struct imsg *imsg)
 	}
 
 	if ((av4.addrs & RTA_NETMASK) != 0) {
-		mask.sin_len = sizeof(mask);
-		mask.sin_family = AF_INET;
-		mask.sin_addr.s_addr = av4.netmask.s_addr;
-		iov[iovcnt].iov_base = &mask;
-		iov[iovcnt++].iov_len = sizeof(mask);
-		rtm.rtm_msglen += sizeof(mask);
+		netmask.sin_len = sizeof(netmask);
+		netmask.sin_family = AF_INET;
+		netmask.sin_addr.s_addr = av4.netmask.s_addr;
+		iov[iovcnt].iov_base = &netmask;
+		iov[iovcnt++].iov_len = sizeof(netmask);
+		rtm.rtm_msglen += sizeof(netmask);
 	}
 
 	if ((av4.addrs & RTA_IFA) != 0) {
