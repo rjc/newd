@@ -256,7 +256,7 @@ control_dispatch_imsg(int fd, short event, void *bula)
 			/* Forward to all other processes. */
 			frontend_imsg_compose_main(imsg.hdr.type, imsg.hdr.pid,
 			    imsg.data, imsg.hdr.len - IMSG_HEADER_SIZE);
-			frontend_imsg_compose_engine(imsg.hdr.type, 0,
+			frontend_imsg_compose_engine(imsg.hdr.type,
 			    imsg.hdr.pid, imsg.data,
 			    imsg.hdr.len - IMSG_HEADER_SIZE);
 
@@ -280,9 +280,9 @@ control_dispatch_imsg(int fd, short event, void *bula)
 			    sizeof(struct ctl_policy_id))
 				break;
 			c->iev.ibuf.pid = imsg.hdr.pid;
-			frontend_imsg_compose_engine(imsg.hdr.type, 0,
-			    imsg.hdr.pid,
-			    imsg.data, imsg.hdr.len - IMSG_HEADER_SIZE);
+			frontend_imsg_compose_engine(imsg.hdr.type,
+			    imsg.hdr.pid, imsg.data,
+			    imsg.hdr.len - IMSG_HEADER_SIZE);
 			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
