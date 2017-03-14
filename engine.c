@@ -54,7 +54,6 @@ void		 engine_show_v4proposal(struct imsg *,
 void		 engine_show_v6proposal(struct imsg *,
 		     struct imsg_v6proposal *, struct ctl_policy_id *);
 void		 engine_set_source_state(struct imsg *);
-void		 engine_supersede_v4proposal(struct imsg_v4proposal *);
 
 struct netcfgd_conf	*engine_conf;
 struct imsgev		*iev_frontend;
@@ -682,11 +681,6 @@ engine_set_source_state(struct imsg *imsg)
 			break;
 		}
 	}
-}
-
-void
-engine_supersede_v4proposal(struct imsg_v4proposal *v4proposal)
-{
 }
 
 void
