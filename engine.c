@@ -426,20 +426,24 @@ engine_process_v4proposal(struct imsg *imsg)
 	switch (p4->source) {
 	case RTP_PROPOSAL_DHCLIENT:
 		if (p4->kill) {
+			log_warnx("dhclient proposal %0x killed", p4->xid);
 			engine_kill_proposal(p4->xid);
 			free(p4);
 		} else if (ifp->dhclient != NULL &&
 		    p4->xid == ifp->dhclient->xid) {
 			/* Discard duplicate proposals. */
-			log_warnx("duplicate dhclient proposal discarded");
+			log_warnx("duplicate dhclient proposal %0x discarded",
+			    p4->xid);
 			free(p4);
 			return;
 		} else {
 			if (ifp->dhclient != NULL) {
-				log_warnx("dhclient proposal superseded");
+				log_warnx("dhclient proposal %0x superseded",
+				    ifp->dhclient->xid);
 				engine_kill_proposal(ifp->dhclient->xid);
 			} else
-				log_warnx("new dhclient proposal");
+				log_warnx("new dhclient proposal %0x",
+				    p4->xid);
 			ifp->dhclient = p4;
 			engine_add_v4address(ifp->dhclient);
 			engine_add_v4routes(ifp->dhclient);
