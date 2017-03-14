@@ -108,9 +108,10 @@ netcfgd_delete_v4route(struct imsg *imsg)
 	memset(&rtm, 0, sizeof(rtm));
 
 	rtm.rtm_version = RTM_VERSION;
-        rtm.rtm_type = RTM_DELETE;
+	rtm.rtm_type = RTM_DELETE;
 	rtm.rtm_addrs = RTA_DST | RTA_GATEWAY | RTA_NETMASK;
-        rtm.rtm_seq = seqno++;
+	rtm.rtm_seq = seqno++;
+	rtm.rtm_msglen = sizeof(rtm);
 
 	rtm.rtm_index = dv4.index;
 	rtm.rtm_tableid = dv4.rdomain;
