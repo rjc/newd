@@ -846,7 +846,6 @@ engine_resolv_conf_contents(struct interface *ifp)
 	} else {
 		engine_imsg_compose_main(IMSG_RESOLV_CONF, 0, contents,
 		    rslt + 1);
-		free(contents);
 	}
 
 	for (i = 0; i < MAXNS; i++)
