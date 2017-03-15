@@ -31,5 +31,3 @@ void	engine_delete_v6routes(struct imsg_v6proposal *);
 void	engine_add_v6routes(struct imsg_v6proposal *);
 void	engine_delete_v6address(struct imsg_v6proposal *);
 void	engine_add_v6address(struct imsg_v6proposal *);
-
-void	engine_resolv_conf_contents(struct interface *);
