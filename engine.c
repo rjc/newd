@@ -49,6 +49,7 @@ void		 engine_showinfo_ctl(struct imsg *);
 void		 engine_process_v4proposal(struct imsg *);
 void		 engine_process_v6proposal(struct imsg *);
 void		 engine_kill_proposal(int);
+void		 engine_discard_proposal(int);
 void		 engine_show_v4proposal(struct imsg *,
 		     struct imsg_v4proposal *, struct ctl_policy_id *);
 void		 engine_show_v6proposal(struct imsg *,
@@ -219,6 +220,10 @@ engine_dispatch_frontend(int fd, short event, void *bula)
 		case IMSG_CTL_LOG_LEVEL:
 			memcpy(&payload, imsg.data, sizeof(payload));
 			log_setverbose(payload);
+			break;
+		case IMSG_CTL_DISCARD_PROPOSAL:
+			memcpy(&payload, imsg.data, sizeof(payload));
+			engine_discard_proposal(payload);
 			break;
 		case IMSG_CTL_KILL_PROPOSAL:
 			memcpy(&payload, imsg.data, sizeof(payload));
@@ -561,6 +566,38 @@ engine_process_v6proposal(struct imsg *imsg)
 	}
 
 	engine_resolv_conf_contents(ifp);
+}
+
+void
+engine_discard_proposal(int xid)
+{
+	struct interface *ifp;
+
+	LIST_FOREACH(ifp, &engine_conf->interface_list, entry) {
+		if (ifp->dhclient != NULL && ifp->dhclient->xid == xid) {
+			free(ifp->dhclient);
+			ifp->dhclient = NULL;
+			break;
+		}
+		if (ifp->v4static != NULL && ifp->v4static->xid == xid) {
+			free(ifp->v4static);
+			ifp->v4static = NULL;
+			break;
+		}
+		if (ifp->slaac != NULL && ifp->slaac->xid == xid) {
+			free(ifp->slaac);
+			ifp->slaac = NULL;
+			break;
+		}
+		if (ifp->v6static != NULL && ifp->v6static->xid == xid) {
+			free(ifp->v6static);
+			ifp->dhclient = NULL;
+			break;
+		}
+	}
+
+	if (ifp == NULL)
+		log_warnx("No proposal with xid %0x to discard", xid);
 }
 
 void

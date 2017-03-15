@@ -273,6 +273,7 @@ control_dispatch_imsg(int fd, short event, void *bula)
 			imsg_compose_event(&c->iev, IMSG_CTL_END, 0, 0, -1,
 			    NULL, 0);
 			break;
+		case IMSG_CTL_DISCARD_PROPOSAL:
 		case IMSG_CTL_KILL_PROPOSAL:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(payload))
 				break;
