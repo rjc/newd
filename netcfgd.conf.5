@@ -79,6 +79,11 @@ Accept IPv4 proposals from static configuration.
 .It Sy v6static
 Accept IPv6 proposals from static configuration.
 .El
+.Pp
+The order in which the attributes appear determines the order in which
+the corresponding proposal contents will be used to build the
+.Xr resolv.conf 5
+file.
 .Sh EXAMPLE
 .Bd -literal -offset indent
 include "/etc/netcfgd.sub.conf"

@@ -733,7 +733,7 @@ engine_resolv_conf_contents(void)
 {
 	struct interface	*ifp;
 	char			*search[6], *nss[5], *contents;
-	int			 i, rslt;
+	int			 i, priority, rslt;
 
 	memset(nss, 0, sizeof(nss));
 	memset(search, 0, sizeof(search));
@@ -747,29 +747,39 @@ engine_resolv_conf_contents(void)
 	 */
 
 	LIST_FOREACH(ifp, &engine_conf->interface_list, entry) {
-		if (ifp->dhclient) {
-			engine_add_domains(search, ifp->dhclient->rtsearch,
-			    ifp->dhclient->rtsearch_len);
-			engine_add_v4nameservers(nss,
-			    ifp->dhclient->rtdns, ifp->dhclient->rtdns_len);
-		}
-		if (ifp->v4static) {
-			engine_add_domains(search, ifp->v4static->rtsearch,
-			    ifp->v4static->rtsearch_len);
-			engine_add_v4nameservers(nss,
-			    ifp->v4static->rtdns, ifp->v4static->rtdns_len);
-		}
-		if (ifp->slaac && ifp->slaac->rtsearch_len > 0) {
-			engine_add_domains(search, ifp->v4static->rtsearch,
-			    ifp->v4static->rtsearch_len);
-			engine_add_v6nameservers(nss,
-			    ifp->slaac->rtdns, ifp->slaac->rtdns_len);
-		}
-		if (ifp->v6static && ifp->v6static->rtsearch_len > 0) {
-			engine_add_domains(search, ifp->v4static->rtsearch,
-			    ifp->v4static->rtsearch_len);
-			engine_add_v6nameservers(nss,
-			    ifp->v6static->rtdns, ifp->v4static->rtdns_len);
+		for (priority = 1; priority <= 4; priority++) {
+			if (ifp->dhclient && ifp->dhclient_ok == priority) {
+				engine_add_domains(search,
+				    ifp->dhclient->rtsearch,
+				    ifp->dhclient->rtsearch_len);
+				engine_add_v4nameservers(nss,
+				    ifp->dhclient->rtdns,
+				    ifp->dhclient->rtdns_len);
+			}
+			if (ifp->v4static && ifp->v4static_ok == priority) {
+				engine_add_domains(search,
+				    ifp->v4static->rtsearch,
+				    ifp->v4static->rtsearch_len);
+				engine_add_v4nameservers(nss,
+				    ifp->v4static->rtdns,
+				    ifp->v4static->rtdns_len);
+			}
+			if (ifp->slaac && ifp->slaac_ok == priority) {
+				engine_add_domains(search,
+				    ifp->v4static->rtsearch,
+				    ifp->v4static->rtsearch_len);
+				engine_add_v6nameservers(nss,
+				    ifp->slaac->rtdns,
+				    ifp->slaac->rtdns_len);
+			}
+			if (ifp->v6static && ifp->v6static_ok == priority) {
+				engine_add_domains(search,
+				    ifp->v4static->rtsearch,
+				    ifp->v4static->rtsearch_len);
+				engine_add_v6nameservers(nss,
+				    ifp->v6static->rtdns,
+				    ifp->v4static->rtdns_len);
+			}
 		}
 	}
 
