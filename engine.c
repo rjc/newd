@@ -48,6 +48,7 @@ void		 engine_dispatch_main(int, short, void *);
 void		 engine_showinfo_ctl(struct imsg *);
 void		 engine_process_v4proposal(struct imsg *);
 void		 engine_process_v6proposal(struct imsg *);
+void		 engine_add_interface(struct imsg *, struct netcfgd_conf *);
 void		 engine_kill_proposal(int);
 void		 engine_discard_proposal(int);
 void		 engine_show_v4proposal(struct imsg *,
@@ -260,12 +261,10 @@ engine_dispatch_main(int fd, short event, void *bula)
 {
 	struct imsg			 imsg;
 	static struct netcfgd_conf	*nconf;
-	struct interface		*ifp;
 	struct imsgev			*iev = bula;
 	struct imsgbuf			*ibuf;
 	ssize_t				 n;
 	int				 shut = 0;
-	unsigned int			 index;
 
 	ibuf = &iev->ibuf;
 
@@ -325,17 +324,7 @@ engine_dispatch_main(int fd, short event, void *bula)
 			LIST_INIT(&nconf->interface_list);
 			break;
 		case IMSG_RECONF_INTERFACE:
-			if ((ifp = malloc(sizeof(struct interface))) == NULL)
-				fatal(NULL);
-			memcpy(ifp, imsg.data, sizeof(struct interface));
-			index = if_nametoindex(ifp->name);
-			if (index == 0)
-				log_warn("%s", ifp->name);
-			else {
-				ifp->ifindex = index;
-				LIST_INSERT_HEAD(&nconf->interface_list, ifp,
-				    entry);
-			}
+			engine_add_interface(&imsg, nconf);
 			break;
 		case IMSG_RECONF_END:
 			merge_config(engine_conf, nconf);
@@ -944,5 +933,43 @@ engine_add_v6nameservers(char **nss, uint8_t *rtdns, int rtdns_len)
 				break;
 		}
 		free(nameservers[i]);
+	}
+}
+
+void
+engine_add_interface(struct imsg *imsg, struct netcfgd_conf *nconf)
+{
+	struct interface	*ifp, *nifp;
+	unsigned int		 index;
+
+	if ((ifp = malloc(sizeof(struct interface))) == NULL)
+		fatal(NULL);
+
+	memcpy(ifp, imsg->data, sizeof(struct interface));
+	index = if_nametoindex(ifp->name);
+	if (index == 0) {
+		log_warn("%s", ifp->name);
+		return;
+	}
+
+	ifp->ifindex = index;
+
+	if (LIST_EMPTY(&nconf->interface_list)) {
+		LIST_INSERT_HEAD(&nconf->interface_list, ifp, entry);
+		return;
+	}
+
+	/*
+	 * Insert interface before entry with higher priority or at
+	 * the end of the list.
+	 */
+	LIST_FOREACH(nifp, &nconf->interface_list, entry) {
+		if (nifp->priority > ifp->priority) {
+			LIST_INSERT_BEFORE(nifp, ifp, entry);
+			break;
+		} else if (LIST_NEXT(nifp, entry) == NULL) {
+			LIST_INSERT_AFTER(nifp, ifp, entry);
+			break;
+		}
 	}
 }

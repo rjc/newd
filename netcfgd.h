@@ -90,6 +90,7 @@ struct interface {
 	int			 slaac_ok;
 	int			 v4static_ok;
 	int			 v6static_ok;
+	int			 priority;
 	struct imsg_v4proposal	*dhclient;
 	struct imsg_v4proposal	*v4static;
 	struct imsg_v6proposal	*slaac;

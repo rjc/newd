@@ -86,7 +86,8 @@ static int			 errors;
 static struct interface		*interface;
 
 struct interface	*conf_get_interface(char *);
-int			 priority;
+int			 source_priority;
+int			 interface_priority;
 
 typedef struct {
 	union {
@@ -169,8 +170,9 @@ nl		: '\n' optnl		/* one or more newlines */
 		;
 
 interface	: INTERFACE STRING {
-			priority = 0;
+			source_priority = 0;
 			interface = conf_get_interface($2);
+			interface->priority = ++interface_priority;
 		} '{' optnl policyopts_l '}' {
 			interface = NULL;
 		}
@@ -185,28 +187,28 @@ policyoptsl	: DHCLIENT {
 				yyerror("dhclient already specified");
 				YYERROR;
 			}
-			interface->dhclient_ok = ++priority;
+			interface->dhclient_ok = ++source_priority;
 		}
 		| SLAAC {
 			if (interface->slaac_ok != 0) {
 				yyerror("slaac already specified");
 				YYERROR;
 			}
-			interface->slaac_ok = ++priority;
+			interface->slaac_ok = ++source_priority;
 		}
 		| V4STATIC {
 			if (interface->v4static_ok != 0) {
 				yyerror("v4static already specified");
 				YYERROR;
 			}
-			interface->v4static_ok = ++priority;
+			interface->v4static_ok = ++source_priority;
 		}
 		| V6STATIC {
 			if (interface->v6static_ok != 0) {
 				yyerror("v6static already specified");
 				YYERROR;
 			}
-			interface->v6static_ok = ++priority;
+			interface->v6static_ok = ++source_priority;
 		}
 		;
 

@@ -631,18 +631,34 @@ main_showinfo_ctl(struct imsg *imsg)
 void
 merge_config(struct netcfgd_conf *conf, struct netcfgd_conf *xconf)
 {
-	struct interface	*ifp;
+	struct interface	*ifp, *nifp;
 
-	/* Remove & discard existing groups. */
+	/* Remove & discard existing interfaces. */
 	while ((ifp = LIST_FIRST(&conf->interface_list)) != NULL) {
 		LIST_REMOVE(ifp, entry);
 		free(ifp);
 	}
 
-	/* Add new groups. */
+	/* Add new interfaces. */
 	while ((ifp = LIST_FIRST(&xconf->interface_list)) != NULL) {
 		LIST_REMOVE(ifp, entry);
-		LIST_INSERT_HEAD(&conf->interface_list, ifp, entry);
+		if (LIST_EMPTY(&conf->interface_list)) {
+			LIST_INSERT_HEAD(&conf->interface_list, ifp, entry);
+		} else {
+			/*
+			 * Insert interface before the entry with higher
+			 * priority or at the end of the list.
+			 */
+			LIST_FOREACH(nifp, &conf->interface_list, entry) {
+				if (nifp->priority > ifp->priority) {
+					LIST_INSERT_BEFORE(nifp, ifp, entry);
+					break;
+				} else if (LIST_NEXT(nifp, entry) == NULL) {
+					LIST_INSERT_AFTER(nifp, ifp, entry);
+					break;
+				}
+			}
+		}
 	}
 
 	free(xconf);

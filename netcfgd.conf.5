@@ -65,6 +65,11 @@ An interface is a named list of attributes, specified with
 .It interface Ar name { attribute list }
 .El
 .Pp
+The order in which the interfaces appear determines the order in which
+the corresponding interface's proposals will be used to build the
+.Xr resolv.conf 5
+file.
+.Pp
 The possible
 .Ic interface
 attributes are
