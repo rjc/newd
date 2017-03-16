@@ -179,34 +179,24 @@ void
 engine_delete_v4address(struct imsg_v4proposal *v4proposal)
 {
 	struct imsg_delete_v4address	 dv4;
-	char				*ifname;
 
 	memset(&dv4, 0, sizeof(dv4));
 	memcpy(&dv4.addr, &v4proposal->ifa, sizeof(dv4.addr));
+	dv4.index = v4proposal->index;
 
-	ifname = if_indextoname(v4proposal->index, dv4.name);
-	if (ifname == NULL)
-		log_warnx("invalid interface index %d", v4proposal->index);
-	else
-		engine_imsg_compose_main(IMSG_DELETE_V4ADDRESS, 0, &dv4,
-		    sizeof(dv4));
+	engine_imsg_compose_main(IMSG_DELETE_V4ADDRESS, 0, &dv4, sizeof(dv4));
 }
 
 void
 engine_add_v4address(struct imsg_v4proposal *v4proposal)
 {
 	struct imsg_add_v4address	 av4;
-	char				*ifname;
 
 	memset(&av4, 0, sizeof(av4));
 
 	memcpy(&av4.addr, &v4proposal->ifa, sizeof(av4.addr));
 	memcpy(&av4.netmask, &v4proposal->netmask, sizeof(av4.netmask));
+	av4.index = v4proposal->index;
 
-	ifname = if_indextoname(v4proposal->index, av4.name);
-	if (ifname == NULL)
-		log_warnx("invalid interface index %d", v4proposal->index);
-	else
-		engine_imsg_compose_main(IMSG_ADD_V4ADDRESS, 0, &av4,
-		    sizeof(av4));
+	engine_imsg_compose_main(IMSG_ADD_V4ADDRESS, 0, &av4, sizeof(av4));
 }

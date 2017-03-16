@@ -161,22 +161,22 @@ struct imsg_supersede_proposal {
 };
 
 struct imsg_delete_v4address {
-	char			name[IF_NAMESIZE];
 	struct in_addr		addr;
+	unsigned int		index;
 };
 struct imsg_delete_v6address {
-	char			name[IF_NAMESIZE];
 	struct in6_addr		addr;
+	unsigned int		index;
 };
 struct imsg_add_v4address {
-	char			name[IF_NAMESIZE];
 	struct in_addr		addr;
 	struct in_addr		netmask;
+	unsigned int		index;
 };
 struct imsg_add_v6address {
-	char			name[IF_NAMESIZE];
 	struct in6_addr		addr;
 	struct in6_addr		netmask;
+	unsigned int		index;
 };
 struct imsg_delete_v4route {
 	struct in_addr		dest;
@@ -189,6 +189,11 @@ struct imsg_delete_v6route {
 	struct in6_addr		dest;
 	struct in6_addr		netmask;
 	struct in6_addr		gateway;
+	struct in_addr		ifa;
+	int			index;
+	int			rdomain;
+	int			addrs;
+	int			flags;
 };
 struct imsg_add_v4route {
 	struct in_addr		dest;
@@ -206,8 +211,8 @@ struct imsg_add_v6route {
 	struct in6_addr		gateway;
 };
 struct imsg_set_mtu {
-	char			name[IF_NAMESIZE];
 	int			mtu;
+	unsigned int		index;
 };
 
 extern uint32_t	 cmd_opts;

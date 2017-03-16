@@ -1,4 +1,4 @@
-
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2017 Kenneth R Westerback <krw@openbsd.org>
@@ -706,14 +706,20 @@ netcfgd_supersede_proposal(struct imsg *imsg)
 void
 netcfgd_set_mtu(struct imsg *imsg)
 {
+	char			 ifname[IF_NAMESIZE];
 	struct imsg_set_mtu	 sm;
 	struct ifreq		 ifr;
 
 	memset(&ifr, 0, sizeof(ifr));
 	memcpy(&sm, imsg->data, sizeof(sm));
 
-	strlcpy(ifr.ifr_name, sm.name, sizeof(ifr.ifr_name));
-		ifr.ifr_mtu = sm.mtu;
+	if (if_indextoname(sm.index, ifname) == NULL) {
+		log_warnx("invalid interface index %d", sm.index);
+		return;
+	}
+	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+
+	ifr.ifr_mtu = sm.mtu;
 
 	if (ioctl(kr_state.inet_fd, SIOCSIFMTU, &ifr) == -1)
 		log_warn("SIOCSIFMTU (%d)", sm.mtu);

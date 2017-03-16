@@ -47,6 +47,7 @@
 void
 netcfgd_delete_v4address(struct imsg *imsg)
 {
+	char				 ifname[IF_NAMESIZE];
 	struct ifaliasreq		 ifaliasreq;
 	struct imsg_delete_v4address	 dv4;
 	struct sockaddr_in		*in;
@@ -54,7 +55,11 @@ netcfgd_delete_v4address(struct imsg *imsg)
 	memcpy(&dv4, imsg->data, sizeof(dv4));
 	memset(&ifaliasreq, 0, sizeof(ifaliasreq));
 
-	strncpy(ifaliasreq.ifra_name, dv4.name, sizeof(ifaliasreq.ifra_name));
+	if (if_indextoname(dv4.index, ifname) == NULL) {
+		log_warnx("invalid interface index %d", dv4.index);
+		return;
+	}
+	strncpy(ifaliasreq.ifra_name, ifname, sizeof(ifaliasreq.ifra_name));
 
 	in = (struct sockaddr_in *)&ifaliasreq.ifra_addr;
 	memcpy(in, &dv4.addr, sizeof(*in));
@@ -67,6 +72,7 @@ netcfgd_delete_v4address(struct imsg *imsg)
 void
 netcfgd_add_v4address(struct imsg *imsg)
 {
+	char				 ifname[IF_NAMESIZE];
 	struct ifaliasreq		 ifaliasreq;
 	struct imsg_add_v4address	 av4;
 	struct sockaddr_in		*in;
@@ -74,7 +80,11 @@ netcfgd_add_v4address(struct imsg *imsg)
 	memcpy(&av4, imsg->data, sizeof(av4));
 	memset(&ifaliasreq, 0, sizeof(ifaliasreq));
 
-	strncpy(ifaliasreq.ifra_name, av4.name, sizeof(ifaliasreq.ifra_name));
+	if (if_indextoname(av4.index, ifname) == NULL) {
+		log_warnx("invalid interface index %d", av4.index);
+		return;
+	}
+	strncpy(ifaliasreq.ifra_name, ifname, sizeof(ifaliasreq.ifra_name));
 
 	/*
 	 * Add address & netmask. No need to set broadcast
