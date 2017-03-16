@@ -42,6 +42,9 @@
 __dead void	 frontend_shutdown(void);
 void		 frontend_sig_handler(int, short, void *);
 
+void	 frontend_dispatch_main(int, short, void *);
+void	 frontend_dispatch_engine(int, short, void *);
+
 struct netcfgd_conf	*frontend_conf;
 struct imsgev		*iev_main;
 struct imsgev		*iev_engine;

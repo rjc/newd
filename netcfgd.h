@@ -18,8 +18,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define CONF_FILE		"/etc/netcfgd.conf"
-#define	NETCFGD_SOCKET		"/var/run/netcfgd.sock"
+#define NETCFGD_CONF_FILE	"/etc/netcfgd.conf"
+#define NETCFGD_SOCKET		"/var/run/netcfgd.sock"
 #define NETCFGD_USER		"_netcfgd"
 
 #define OPT_VERBOSE	0x00000001

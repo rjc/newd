@@ -123,7 +123,7 @@ main(int argc, char *argv[])
 	int		 pipe_main2frontend[2];
 	int		 pipe_main2engine[2];
 
-	conffile = CONF_FILE;
+	conffile = NETCFGD_CONF_FILE;
 	sockname = NETCFGD_SOCKET;
 
 	log_init(1, LOG_DAEMON);	/* Log to stderr until daemonized. */

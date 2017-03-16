@@ -892,9 +892,7 @@ engine_add_v4nameservers(char **nss, uint8_t *rtdns, int rtdns_len)
 
 	/* Append new nameservers to nameserver list. */
 	for (i = 0; i < index; i++) {
-		log_warnx("i = %d", i);
 		for (j = 0; j < 6; j++) {
-			log_warnx("j = %d", j);
 			if (nss[j] == NULL) {
 				nss[j] = nameservers[i];
 				nameservers[i] = NULL;
