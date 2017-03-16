@@ -610,7 +610,6 @@ engine_kill_proposal(int xid)
 	struct imsg_supersede_proposal	sp;
 	struct interface *ifp;
 
-	memset(&sp, 0, sizeof(sp));
 	sp.xid = xid;
 
 	LIST_FOREACH(ifp, &engine_conf->interface_list, entry) {

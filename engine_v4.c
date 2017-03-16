@@ -63,7 +63,6 @@ engine_delete_v4routes(struct imsg_v4proposal *v4proposal)
 		else if (i + bytes > v4proposal->rtstatic_len)
 			return;
 
-		memset(&dv4, 0, sizeof(dv4));
 		if (bits)
 			dv4.netmask.s_addr = htonl(0xffffffff << (32 - bits));
 		else
@@ -102,7 +101,6 @@ engine_add_v4routes(struct imsg_v4proposal *v4proposal)
 		else if (i + bytes > v4proposal->rtstatic_len)
 			return;
 
-		memset(&av4, 0, sizeof(av4));
 		av4.ifa.s_addr = v4proposal->ifa.s_addr;
 
 		if (bits)
@@ -180,7 +178,6 @@ engine_delete_v4address(struct imsg_v4proposal *v4proposal)
 {
 	struct imsg_delete_v4address	 dv4;
 
-	memset(&dv4, 0, sizeof(dv4));
 	memcpy(&dv4.addr, &v4proposal->ifa, sizeof(dv4.addr));
 	dv4.index = v4proposal->index;
 
@@ -191,8 +188,6 @@ void
 engine_add_v4address(struct imsg_v4proposal *v4proposal)
 {
 	struct imsg_add_v4address	 av4;
-
-	memset(&av4, 0, sizeof(av4));
 
 	memcpy(&av4.addr, &v4proposal->ifa, sizeof(av4.addr));
 	memcpy(&av4.netmask, &v4proposal->netmask, sizeof(av4.netmask));
