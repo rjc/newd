@@ -297,6 +297,8 @@ main_shutdown(void)
 	free(iev_frontend);
 	free(iev_engine);
 
+	control_cleanup(csock);
+
 	log_info("terminating");
 	exit(0);
 }

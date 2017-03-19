@@ -145,7 +145,6 @@ frontend_shutdown(void)
 	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
 
-	control_cleanup(csock);
 	config_clear(frontend_conf);
 
 	free(iev_engine);
