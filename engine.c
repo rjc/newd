@@ -843,6 +843,8 @@ engine_add_domains(char **search, uint8_t *rtsearch, int rtsearch_len)
 		for (i = 0; i < 6; i++) {
 			if (search[i] == NULL) {
 				search[i] = strdup(*ap);
+				if (search[i] == NULL)
+					log_warn("append search domain");
 				break;
 			} else if (strcmp(search[i], *ap) == 0)
 				break;

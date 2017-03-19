@@ -80,6 +80,8 @@ frontend(int debug, int verbose, char *sockname)
 
 	/* Create netcfgd control socket outside chroot. */
 	csock = strdup(sockname);
+	if (csock == NULL)
+		fatal("strdup");
 	if (control_init(csock) == -1)
 		fatalx("control socket setup failed");
 
