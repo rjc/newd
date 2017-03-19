@@ -316,6 +316,8 @@ engine_dispatch_main(int fd, short event, void *bula)
 			iev_frontend->events, iev_frontend->handler,
 			    iev_frontend);
 			event_add(&iev_frontend->ev, NULL);
+			if (pledge("stdio", NULL) == -1)
+				fatal("pledge");
 			break;
 		case IMSG_RECONF_CONF:
 			if ((nconf = malloc(sizeof(struct netcfgd_conf))) == NULL)

@@ -227,6 +227,8 @@ frontend_dispatch_main(int fd, short event, void *bula)
 			event_set(&iev_engine->ev, iev_engine->ibuf.fd,
 			iev_engine->events, iev_engine->handler, iev_engine);
 			event_add(&iev_engine->ev, NULL);
+			if (pledge("stdio inet", NULL) == -1)
+				fatal("pledge");
 			break;
 		case IMSG_RECONF_CONF:
 			if ((nconf = malloc(sizeof(struct netcfgd_conf))) ==
