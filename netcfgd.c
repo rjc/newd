@@ -73,6 +73,7 @@ struct netcfgd_conf	*main_conf;
 struct imsgev		*iev_frontend;
 struct imsgev		*iev_engine;
 char			*conffile;
+char			*csock;
 
 pid_t	 frontend_pid;
 pid_t	 engine_pid;
@@ -118,13 +119,12 @@ main(int argc, char *argv[])
 	struct event	 ev_sigint, ev_sigterm, ev_sighup;
 	int		 ch;
 	int		 debug = 0, engine_flag = 0, frontend_flag = 0;
-	char		*sockname;
 	char		*saved_argv0;
 	int		 pipe_main2frontend[2];
 	int		 pipe_main2engine[2];
 
 	conffile = NETCFGD_CONF_FILE;
-	sockname = NETCFGD_SOCKET;
+	csock = NETCFGD_SOCKET;
 
 	log_init(1, LOG_DAEMON);	/* Log to stderr until daemonized. */
 	log_setverbose(1);
@@ -151,7 +151,7 @@ main(int argc, char *argv[])
 			cmd_opts |= OPT_NOACTION;
 			break;
 		case 's':
-			sockname = optarg;
+			csock = optarg;
 			break;
 		case 'v':
 			if (cmd_opts & OPT_VERBOSE)
@@ -171,7 +171,7 @@ main(int argc, char *argv[])
 	if (engine_flag)
 		engine(debug, cmd_opts & OPT_VERBOSE);
 	else if (frontend_flag)
-		frontend(debug, cmd_opts & OPT_VERBOSE, sockname);
+		frontend(debug, cmd_opts & OPT_VERBOSE, csock);
 
 	/* Parse the conf file. */
 	if ((main_conf = parse_config(conffile)) == NULL) {
@@ -213,7 +213,7 @@ main(int argc, char *argv[])
 	engine_pid = start_child(PROC_ENGINE, saved_argv0, pipe_main2engine[1],
 	    debug, cmd_opts & OPT_VERBOSE, NULL);
 	frontend_pid = start_child(PROC_FRONTEND, saved_argv0,
-	    pipe_main2frontend[1], debug, cmd_opts & OPT_VERBOSE, sockname);
+	    pipe_main2frontend[1], debug, cmd_opts & OPT_VERBOSE, csock);
 
 	netcfgd_process = PROC_MAIN;
 	setproctitle(log_procnames[netcfgd_process]);

@@ -217,7 +217,6 @@ struct imsg_set_mtu {
 };
 
 extern uint32_t	 cmd_opts;
-extern char	*csock;
 
 /* netcfgd.c */
 void	main_imsg_compose_frontend(int, pid_t, void *, uint16_t);
