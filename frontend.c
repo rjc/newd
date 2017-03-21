@@ -46,7 +46,6 @@ void		 frontend_sig_handler(int, short, void *);
 struct newd_conf	*frontend_conf;
 struct imsgev		*iev_main;
 struct imsgev		*iev_engine;
-char			*csock;
 
 void
 frontend_sig_handler(int sig, short event, void *bula)
@@ -77,8 +76,7 @@ frontend(int debug, int verbose, char *sockname)
 	log_setverbose(verbose);
 
 	/* Create newd control socket outside chroot. */
-	csock = strdup(sockname);
-	if (control_init(csock) == -1)
+	if (control_init(sockname) == -1)
 		fatalx("control socket setup failed");
 
 	if ((pw = getpwnam(NEWD_USER)) == NULL)
@@ -141,7 +139,6 @@ frontend_shutdown(void)
 	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
 
-	control_cleanup(csock);
 	config_clear(frontend_conf);
 
 	free(iev_engine);
