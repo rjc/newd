@@ -641,7 +641,7 @@ engine_kill_proposal(int xid)
 			engine_delete_v6routes(ifp->v6static);
 			engine_delete_v6address(ifp->v6static);
 			free(ifp->v6static);
-			ifp->dhclient = NULL;
+			ifp->v6static = NULL;
 			break;
 		}
 	}
