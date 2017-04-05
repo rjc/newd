@@ -222,7 +222,7 @@ forward_v4proposal(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	copy_sockaddr_in(&proposal.ifa, rti_info[RTAX_IFA]);
 	copy_sockaddr_in(&proposal.netmask, rti_info[RTAX_NETMASK]);
 
-	main_imsg_compose_engine(IMSG_SEND_V4PROPOSAL, 0, &proposal,
+	main_imsg_compose_engine(IMSG_V4_PROPOSAL, 0, &proposal,
 	    sizeof(proposal));
 }
 

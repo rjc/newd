@@ -332,7 +332,7 @@ engine_dispatch_main(int fd, short event, void *bula)
 			merge_config(engine_conf, nconf);
 			nconf = NULL;
 			break;
-		case IMSG_SEND_V4PROPOSAL:
+		case IMSG_V4_PROPOSAL:
 			engine_process_v4proposal(&imsg);
 			break;
 		case IMSG_SEND_V6PROPOSAL:
