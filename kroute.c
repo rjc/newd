@@ -140,6 +140,10 @@ kr_dispatch_msg(int fd, short event, void *bula)
 				log_warnx("Seeing RTF_PROTO1");
 				break;
 			}
+			if ((rtm->rtm_flags & RTF_PROTO3) != 0) {
+				log_warnx("Seeing RTF_PROTO3");
+				break;
+			}
 			if (v6)
 				forward_v6proposal(rtm, rti_info);
 			else
