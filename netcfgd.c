@@ -578,7 +578,7 @@ main_imsg_send_config(struct netcfgd_conf *xconf)
 	/* Send the group list to children. */
 	LIST_FOREACH(ifp, &xconf->interface_list, entry) {
 		if (main_sendboth(IMSG_RECONF_INTERFACE, ifp,
-			    sizeof(*ifp)) == -1)
+		    sizeof(*ifp)) == -1)
 			return (-1);
 	}
 
