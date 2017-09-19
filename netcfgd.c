@@ -216,7 +216,7 @@ main(int argc, char *argv[])
 	    pipe_main2frontend[1], debug, cmd_opts & OPT_VERBOSE, csock);
 
 	netcfgd_process = PROC_MAIN;
-	setproctitle(log_procnames[netcfgd_process]);
+	setproctitle("%s", log_procnames[netcfgd_process]);
 	log_procinit(log_procnames[netcfgd_process]);
 
 	event_init();

@@ -104,7 +104,7 @@ engine(int debug, int verbose)
 		fatal("chdir(\"/\")");
 
 	netcfgd_process = PROC_ENGINE;
-	setproctitle(log_procnames[netcfgd_process]);
+	setproctitle("%s", log_procnames[netcfgd_process]);
 	log_procinit(log_procnames[netcfgd_process]);
 
 	if (setgroups(1, &pw->pw_gid) ||

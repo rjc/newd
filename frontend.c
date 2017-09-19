@@ -91,7 +91,7 @@ frontend(int debug, int verbose, char *sockname)
 		fatal("chdir(\"/\")");
 
 	netcfgd_process = PROC_FRONTEND;
-	setproctitle(log_procnames[netcfgd_process]);
+	setproctitle("%s", log_procnames[netcfgd_process]);
 	log_procinit(log_procnames[netcfgd_process]);
 
 	if (setgroups(1, &pw->pw_gid) ||
