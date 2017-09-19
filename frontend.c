@@ -88,7 +88,7 @@ frontend(int debug, int verbose, char *sockname)
 		fatal("chdir(\"/\")");
 
 	newd_process = PROC_FRONTEND;
-	setproctitle(log_procnames[newd_process]);
+	setproctitle("%s", log_procnames[newd_process]);
 	log_procinit(log_procnames[newd_process]);
 
 	if (setgroups(1, &pw->pw_gid) ||

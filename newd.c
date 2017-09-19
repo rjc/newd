@@ -207,7 +207,7 @@ main(int argc, char *argv[])
 	    pipe_main2frontend[1], debug, cmd_opts & OPT_VERBOSE, csock);
 
 	newd_process = PROC_MAIN;
-	setproctitle(log_procnames[newd_process]);
+	setproctitle("%s", log_procnames[newd_process]);
 	log_procinit(log_procnames[newd_process]);
 
 	event_init();
