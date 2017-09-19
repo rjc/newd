@@ -30,10 +30,16 @@
 #define	NETCFGD_MAX_RTSOCK_BUF	128 * 1024
 #define NETCFGD_RT_BUF_SIZE	16384
 
+enum {
+	PROC_MAIN,
+	PROC_ENGINE,
+	PROC_FRONTEND
+} netcfgd_process;
+
 static const char * const log_procnames[] = {
 	"main",
-	"frontend",
-	"engine"
+	"engine",
+	"frontend"
 };
 
 struct imsgev {
@@ -74,12 +80,6 @@ enum imsg_type {
 	IMSG_SET_MTU,
 	IMSG_RESOLV_CONF
 };
-
-enum {
-	PROC_MAIN,
-	PROC_ENGINE,
-	PROC_FRONTEND
-} netcfgd_process;
 
 struct interface {
 	LIST_ENTRY(interface)	 entry;
