@@ -28,10 +28,16 @@
 #define NEWD_MAXTEXT		256
 #define NEWD_MAXGROUPNAME	16
 
+enum {
+	PROC_MAIN,
+	PROC_ENGINE,
+	PROC_FRONTEND
+} newd_process;
+
 static const char * const log_procnames[] = {
 	"main",
-	"frontend",
 	"engine"
+	"frontend",
 };
 
 struct imsgev {
@@ -54,12 +60,6 @@ enum imsg_type {
 	IMSG_RECONF_END,
 	IMSG_SOCKET_IPC
 };
-
-enum {
-	PROC_MAIN,
-	PROC_ENGINE,
-	PROC_FRONTEND
-} newd_process;
 
 struct group {
 	LIST_ENTRY(group)	 entry;
