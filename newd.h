@@ -36,8 +36,8 @@ enum {
 
 static const char * const log_procnames[] = {
 	"main",
-	"engine"
-	"frontend",
+	"engine",
+	"frontend"
 };
 
 struct imsgev {
