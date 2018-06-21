@@ -652,8 +652,6 @@ parse_config(char *filename)
 	}
 	topfile = file;
 
-	LIST_INIT(&conf->group_list);
-
 	yyparse();
 	errors = file->errors;
 	popfile();
