@@ -168,6 +168,8 @@ varset		: STRING '=' string		{
 				if (isspace((unsigned char)*s)) {
 					yyerror("macro name cannot contain "
 					    "whitespace");
+					free($1);
+					free($3);
 					YYERROR;
 				}
 			}
